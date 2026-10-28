@@ -1,3 +1,5 @@
+<img src="public/logo-512.png" alt="" width="72" align="left">
+
 # Taste Agent
 
 **Live demo: https://taste-agent-omega.vercel.app** (no login needed)

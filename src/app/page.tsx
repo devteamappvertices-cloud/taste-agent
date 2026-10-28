@@ -6,6 +6,7 @@ import type { AgentEvent } from "@/lib/agent";
 import type { EntityCard } from "@/lib/qloo";
 import { Composer } from "@/components/Composer";
 import { MatchDetail, MatchRow } from "@/components/Matches";
+import { LogoMark } from "@/components/Logo";
 import { TasteBuilder } from "@/components/TasteBuilder";
 
 interface Step {
@@ -216,9 +217,10 @@ export default function Home() {
   const header = (
     <header className="shrink-0 border-b border-line bg-paper">
       <div className={`mx-auto flex items-center justify-between px-4 py-2.5 ${started ? "max-w-7xl" : "max-w-6xl"}`}>
-        <button type="button" onClick={reset} className="text-left" aria-label="Taste Agent, start over">
+        <button type="button" onClick={reset} className="flex items-center gap-2 text-left" aria-label="Taste Agent, start over">
+          <LogoMark />
           <span className="font-display text-lg font-bold tracking-tight">Taste Agent</span>
-          <span className="ml-2 hidden text-xs text-muted sm:inline">Personal recommendations, powered by Qloo</span>
+          <span className="hidden text-xs text-muted sm:inline">Personal recommendations, powered by Qloo</span>
         </button>
         {started && (
           <button
