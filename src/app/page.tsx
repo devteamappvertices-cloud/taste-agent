@@ -20,6 +20,8 @@ interface Step {
 interface Turn {
   role: "user" | "assistant";
   text: string;
+  /** What is sent to the agent when it differs from what's shown (e.g. with Qloo IDs). */
+  content?: string;
   steps: Step[];
   /** Entities Qloo recommended. */
   entities: EntityCard[];
@@ -32,9 +34,20 @@ interface Turn {
 
 const EXAMPLES = [
   "My dad loves Johnny Cash and westerns. What podcasts would he enjoy?",
-  "Plan a weekend in Tokyo for someone into Studio Ghibli and lo-fi jazz.",
+  "I loved Dune and Interstellar. What should I read next?",
   "I love Radiohead and Blade Runner 2049. Where should I eat in Lisbon?",
 ];
+
+// Real Qloo Insights result for Radiohead -> movies, shown as a preview of what the app does.
+const RADIOHEAD_ID = "70CAE5BF-2F4C-445C-A3E5-4EDACFC3591C";
+const RADIOHEAD_IMAGE = `https://images.qloo.com/i/${RADIOHEAD_ID}-420x-auto.jpg`;
+const PREVIEW = [
+  { name: "Children of Men", pct: 94 },
+  { name: "Being John Malkovich", pct: 94 },
+  { name: "Moon", pct: 93 },
+];
+
+const STEPS = ["Add favorites", "Pick a category", "Get ranked matches"];
 
 const FOLLOW_UPS = ["More like these", "Less mainstream", "Why these match me"];
 
@@ -96,6 +109,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<EntityCard | null>(null);
+  const [mode, setMode] = useState<"guided" | "free">("guided");
   const bottom = useRef<HTMLDivElement>(null);
 
   function reset() {
@@ -105,7 +119,8 @@ export default function Home() {
     setInput("");
   }
 
-  async function send(text: string) {
+  /** `known` pre-fills entities the user already picked, so the taste profile can show them. */
+  async function send(text: string, content?: string, known: EntityCard[] = []) {
     const q = text.trim();
     if (!q || busy) return;
     setInput("");
@@ -113,8 +128,9 @@ export default function Home() {
     setSelected(null);
 
     const empty = { steps: [], entities: [], lookups: {}, seeds: [] };
-    const history: Turn[] = [...turns, { role: "user", text: q, ...empty }];
-    setTurns([...history, { role: "assistant", text: "", ...empty }]);
+    const history: Turn[] = [...turns, { role: "user", text: q, content: content?.trim(), ...empty }];
+    const lookups = Object.fromEntries(known.map((k) => [k.id, k]));
+    setTurns([...history, { role: "assistant", text: "", ...empty, lookups }]);
     setTimeout(() => bottom.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
     const update = (fn: (t: Turn) => Turn) =>
@@ -125,7 +141,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: history.filter((t) => t.text).map((t) => ({ role: t.role, content: t.text })),
+          messages: history.filter((t) => t.text).map((t) => ({ role: t.role, content: t.content || t.text })),
         }),
       });
       if (!res.ok || !res.body) {
@@ -188,7 +204,7 @@ export default function Home() {
     const lastUser = [...turns].reverse().find((t) => t.role === "user");
     if (!lastUser || busy) return;
     setTurns(turns.slice(0, -2));
-    setTimeout(() => send(lastUser.text), 0);
+    setTimeout(() => send(lastUser.text, lastUser.content), 0);
   }
 
   const started = turns.length > 0;
@@ -202,7 +218,7 @@ export default function Home() {
       <div className={`mx-auto flex items-center justify-between px-4 py-2.5 ${started ? "max-w-7xl" : "max-w-6xl"}`}>
         <button type="button" onClick={reset} className="text-left" aria-label="Taste Agent, start over">
           <span className="font-display text-lg font-bold tracking-tight">Taste Agent</span>
-          <span className="ml-2 text-xs text-muted">powered by Qloo</span>
+          <span className="ml-2 hidden text-xs text-muted sm:inline">Personal recommendations, powered by Qloo</span>
         </button>
         {started && (
           <button
@@ -222,45 +238,126 @@ export default function Home() {
     return (
       <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
         {header}
-        <main className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-x-12 gap-y-6 px-4 py-6 lg:min-h-0 lg:grid-cols-2 lg:grid-rows-[auto_auto] lg:overflow-y-auto">
-          <div className="lg:col-start-1 lg:row-start-1 lg:self-end">
-            <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight xl:text-5xl">
-              Tell me what you love. I&apos;ll find what you&apos;ll love next.
+        <main className="mx-auto grid w-full max-w-6xl flex-1 content-center items-center gap-x-14 gap-y-8 px-4 py-6 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:overflow-y-auto">
+          {/* What this is */}
+          <div>
+            <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight xl:text-[3.25rem]">
+              Find movies, music, food and places that fit your taste.
             </h1>
-            <p className="mt-3 max-w-md text-muted">
-              Every pick comes from Qloo&apos;s taste graph of 250 million films, artists, places and brands,
-              matched to the things you already like.
+            <p className="mt-4 max-w-md text-muted">
+              Tell us a few things you already love. Our AI agent searches Qloo&apos;s taste graph of 250
+              million titles, places and brands, and ranks what matches you, in any category.
             </p>
-          </div>
 
-          <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center">
-            <TasteBuilder onSubmit={send} busy={busy} />
-          </div>
-
-          <div className="lg:col-start-1 lg:row-start-2 lg:self-start">
-            <h2 className="font-display text-lg font-semibold">Or ask in your own words</h2>
-            <div className="mt-2">
-              <Composer
-                value={input}
-                onChange={setInput}
-                onSend={send}
-                busy={busy}
-                placeholder="e.g. Gifts for a Wes Anderson fan"
-              />
-            </div>
-            <ul className="mt-3 space-y-1">
-              {EXAMPLES.map((ex) => (
-                <li key={ex}>
-                  <button
-                    type="button"
-                    onClick={() => send(ex)}
-                    className="text-left text-sm text-muted underline decoration-line underline-offset-4 hover:text-ink hover:decoration-forest"
-                  >
-                    {ex}
-                  </button>
+            <ol className="mt-6 flex flex-col gap-2 sm:flex-row sm:gap-5">
+              {STEPS.map((s, i) => (
+                <li key={s} className="flex items-center gap-2 text-sm">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-forest text-xs font-semibold text-forest-ink">
+                    {i + 1}
+                  </span>
+                  {s}
                 </li>
               ))}
-            </ul>
+            </ol>
+
+            {/* A real result, so the purpose is obvious at a glance */}
+            <figure className="mt-7 max-w-md rounded-2xl border border-line bg-surface p-4">
+              <figcaption className="flex items-center gap-2 text-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={RADIOHEAD_IMAGE}
+                  alt=""
+                  className="h-7 w-7 rounded-full object-cover"
+                />
+                <span>
+                  Love <strong className="font-semibold">Radiohead</strong>? Qloo matches these films:
+                </span>
+              </figcaption>
+              <ul className="mt-3 space-y-2">
+                {PREVIEW.map((m) => (
+                  <li key={m.name} className="flex items-center gap-3 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-medium">{m.name}</span>
+                    <span className="h-1.5 w-24 overflow-hidden rounded-full bg-line" aria-hidden="true">
+                      <span className="block h-full rounded-full bg-marigold" style={{ width: `${m.pct}%` }} />
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-right tabular-nums text-muted">{m.pct}% match</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={() =>
+                  send(
+                    "I love Radiohead. Recommend movies that match my taste.",
+                    `I love Radiohead [${RADIOHEAD_ID}]. Recommend movies that match my taste.`,
+                    [{ id: RADIOHEAD_ID, name: "Radiohead", type: "artist", image: RADIOHEAD_IMAGE, tags: [] }],
+                  )
+                }
+                className="mt-3 text-sm font-medium text-forest underline underline-offset-4"
+              >
+                Try this example
+              </button>
+            </figure>
+          </div>
+
+          {/* Start a search */}
+          <div className="rounded-3xl border border-line bg-surface p-5 sm:p-6">
+            <div role="tablist" aria-label="How to search" className="mb-5 inline-flex rounded-full bg-paper p-1">
+              {(
+                [
+                  ["guided", "Pick favorites"],
+                  ["free", "Describe it"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === key}
+                  onClick={() => setMode(key)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+                    mode === key ? "bg-forest text-forest-ink" : "text-muted hover:text-ink"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {mode === "guided" ? (
+              <TasteBuilder onSubmit={send} busy={busy} />
+            ) : (
+              <div>
+                <label htmlFor="free-ask" className="block font-display text-base font-semibold">
+                  Describe what you&apos;re looking for
+                </label>
+                <p className="text-sm text-muted">Mention a few things you love and what you want to find.</p>
+                <div className="mt-2">
+                  <Composer
+                    id="free-ask"
+                    value={input}
+                    onChange={setInput}
+                    onSend={send}
+                    busy={busy}
+                    placeholder="e.g. I love Wes Anderson films. Which restaurants in Paris would I like?"
+                  />
+                </div>
+                <p className="mt-5 text-sm font-medium">Or try one of these</p>
+                <ul className="mt-2 space-y-1.5">
+                  {EXAMPLES.map((ex) => (
+                    <li key={ex}>
+                      <button
+                        type="button"
+                        onClick={() => send(ex)}
+                        className="w-full rounded-xl border border-line px-3 py-2 text-left text-sm hover:border-forest"
+                      >
+                        {ex}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </main>
       </div>

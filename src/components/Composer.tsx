@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useSpeech } from "@/lib/useSpeech";
 
 interface Props {
+  id?: string;
   value: string;
   onChange: (v: string) => void;
   onSend: (v: string) => void;
@@ -20,7 +21,7 @@ export function MicIcon() {
   );
 }
 
-export function Composer({ value, onChange, onSend, busy, placeholder }: Props) {
+export function Composer({ id, value, onChange, onSend, busy, placeholder }: Props) {
   const area = useRef<HTMLTextAreaElement>(null);
   const speech = useSpeech(onChange);
 
@@ -48,6 +49,7 @@ export function Composer({ value, onChange, onSend, busy, placeholder }: Props) 
       >
         <textarea
           ref={area}
+          id={id}
           rows={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}
