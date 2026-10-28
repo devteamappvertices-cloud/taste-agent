@@ -1,26 +1,65 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --paper: #f3f6f2;
+  --surface: #ffffff;
+  --ink: #14231e;
+  --muted: #5e6e68;
+  --line: #d6ded8;
+  --forest: #1f5c4a;
+  --forest-ink: #ffffff;
+  --marigold: #e9a23b;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #0f1714;
+    --surface: #16211d;
+    --ink: #e8efea;
+    --muted: #93a39c;
+    --line: #26332e;
+    --forest: #5fb394;
+    --forest-ink: #0f1714;
+    --marigold: #f0b456;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-forest: var(--forest);
+  --color-forest-ink: var(--forest-ink);
+  --color-marigold: var(--marigold);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+
+.answer p { margin: 0.5em 0; }
+.answer ul, .answer ol { margin: 0.4em 0 0.8em; padding-left: 1.25em; }
+.answer ul { list-style: disc; }
+.answer ol { list-style: decimal; }
+.answer li { margin: 0.2em 0; }
+.answer strong { font-weight: 600; }
+.answer h1, .answer h2, .answer h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin: 1.2em 0 0.4em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

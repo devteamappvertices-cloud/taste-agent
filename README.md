@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Taste Agent
 
-## Getting Started
+An AI agent (Claude Opus 5.5) that grounds every recommendation in [Qloo](https://qloo.com)'s cultural taste graph.
+It resolves what you love into Qloo entities, then uses Qloo Insights to find cross-domain matches
+(music + film taste → restaurants, destinations, podcasts, brands…).
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
+cp .env.example .env.local   # then fill in QLOO_API_KEY and ANTHROPIC_API_KEY
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. `GET /api/health` checks that both keys are configured.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How it works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/lib/qloo.ts` – Qloo client (`/search`, `/v2/tags`, `/v2/insights`) with in-memory caching.
+- `src/lib/agent.ts` – Claude tool-use loop exposing Qloo as four tools; streams events to the UI.
+- `src/app/api/chat/route.ts` – streaming NDJSON endpoint with a simple per-IP rate limit.
+- `src/app/page.tsx` – chat UI showing each Qloo call and the entities it returned.
 
-## Learn More
+## Deploy
 
-To learn more about Next.js, take a look at the following resources:
+Push to GitHub, import the repo in Vercel, and set `QLOO_API_URL`, `QLOO_API_KEY` and `ANTHROPIC_API_KEY`
+as environment variables.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
