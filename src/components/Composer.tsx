@@ -5,6 +5,8 @@ import { useSpeech } from "@/lib/useSpeech";
 
 interface Props {
   id?: string;
+  /** Accessible name for the text box. */
+  label: string;
   value: string;
   onChange: (v: string) => void;
   onSend: (v: string) => void;
@@ -21,7 +23,7 @@ export function MicIcon() {
   );
 }
 
-export function Composer({ id, value, onChange, onSend, busy, placeholder }: Props) {
+export function Composer({ id, label, value, onChange, onSend, busy, placeholder }: Props) {
   const area = useRef<HTMLTextAreaElement>(null);
   const speech = useSpeech(onChange);
 
@@ -60,7 +62,7 @@ export function Composer({ id, value, onChange, onSend, busy, placeholder }: Pro
             }
           }}
           placeholder={speech.listening ? "Listening… speak now" : placeholder}
-          aria-label="Message"
+          aria-label={label}
           className="max-h-40 flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 outline-none placeholder:text-muted focus-visible:outline-none"
         />
         {speech.supported && (
@@ -87,7 +89,7 @@ export function Composer({ id, value, onChange, onSend, busy, placeholder }: Pro
           {busy ? "Working…" : "Send"}
         </button>
       </div>
-      <p className="mt-1.5 px-1 text-xs text-muted">Enter to send, Shift + Enter for a new line</p>
+      <p className="mt-1.5 hidden px-1 text-xs text-muted sm:block">Enter to send, Shift + Enter for a new line</p>
     </div>
   );
 }
