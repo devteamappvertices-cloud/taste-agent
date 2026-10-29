@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { EntityCard } from "@/lib/qloo";
+import { useDialog } from "@/lib/useDialog";
 
 const TYPE_LABEL: Record<string, string> = {
   tv_show: "TV show",
@@ -138,36 +139,7 @@ export function MatchDetail({ e, reason, onClose }: { e: EntityCard; reason?: st
   const back = useRef<HTMLButtonElement>(null);
   const p = pct(e);
   const mapsQuery = e.address ?? [e.name, e.city].filter(Boolean).join(", ");
-  const close = useRef(onClose);
-  useEffect(() => {
-    close.current = onClose;
-  });
-
-  useEffect(() => {
-    // Return focus to the card that opened this when it closes.
-    const opener = document.activeElement as HTMLElement | null;
-    back.current?.focus();
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") close.current();
-      if (ev.key !== "Tab" || !dialog.current) return;
-      // Keep keyboard focus inside the dialog.
-      const items = dialog.current.querySelectorAll<HTMLElement>("button, a[href]");
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (ev.shiftKey && document.activeElement === first) {
-        ev.preventDefault();
-        last.focus();
-      } else if (!ev.shiftKey && document.activeElement === last) {
-        ev.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      opener?.focus();
-    };
-  }, []);
+  useDialog(dialog, back, onClose);
 
   return (
     <div

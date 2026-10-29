@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { EntityCard } from "@/lib/qloo";
+import { useDialog } from "@/lib/useDialog";
 
 export interface Favorite {
   name: string;
@@ -10,28 +11,39 @@ export interface Favorite {
   image?: string;
 }
 
+// `popular` are well-known picks in the same category, offered as one-tap favorites.
 export const CATEGORIES = [
-  { key: "restaurants", label: "Restaurants", title: "Restaurants", phrase: "restaurants", place: true },
-  { key: "bars", label: "Bars & cafés", title: "Bars and cafés", phrase: "bars and cafés", place: true },
-  { key: "travel", label: "Travel", title: "Places to travel", phrase: "travel destinations", place: false },
-  { key: "movies", label: "Movies", title: "Movies", phrase: "movies", place: false },
-  { key: "tv", label: "TV shows", title: "TV shows", phrase: "TV shows", place: false },
-  { key: "music", label: "Music", title: "Music", phrase: "music artists", place: false },
-  { key: "books", label: "Books", title: "Books", phrase: "books", place: false },
-  { key: "podcasts", label: "Podcasts", title: "Podcasts", phrase: "podcasts", place: false },
-  { key: "brands", label: "Brands", title: "Brands", phrase: "brands", place: false },
+  { key: "restaurants", label: "Restaurants", title: "Restaurants", phrase: "restaurants", place: true,
+    popular: ["Nobu", "Shake Shack", "Din Tai Fung", "Sweetgreen", "Joe's Pizza"] },
+  { key: "bars", label: "Bars & cafés", title: "Bars and cafés", phrase: "bars and cafés", place: true,
+    popular: ["Blue Bottle Coffee", "Starbucks", "Soho House", "Death & Co", "Ace Hotel"] },
+  { key: "travel", label: "Travel", title: "Places to travel", phrase: "travel destinations", place: false,
+    popular: ["Paris", "Tokyo", "Bali", "New York City", "Barcelona"] },
+  { key: "movies", label: "Movies", title: "Movies", phrase: "movies", place: false,
+    popular: ["Inception", "The Dark Knight", "Interstellar", "Titanic", "Avengers: Endgame"] },
+  { key: "tv", label: "TV shows", title: "TV shows", phrase: "TV shows", place: false,
+    popular: ["Breaking Bad", "Friends", "Game of Thrones", "The Office", "Stranger Things"] },
+  { key: "music", label: "Music", title: "Music", phrase: "music artists", place: false,
+    popular: ["Taylor Swift", "Drake", "Coldplay", "The Weeknd", "Radiohead"] },
+  { key: "books", label: "Books", title: "Books", phrase: "books", place: false,
+    popular: ["Harry Potter", "The Hunger Games", "Dune", "1984", "The Great Gatsby"] },
+  { key: "podcasts", label: "Podcasts", title: "Podcasts", phrase: "podcasts", place: false,
+    popular: ["Serial", "The Daily", "Huberman Lab", "Call Her Daddy", "The Joe Rogan Experience"] },
+  { key: "brands", label: "Brands", title: "Brands", phrase: "brands", place: false,
+    popular: ["Nike", "Apple", "Patagonia", "IKEA", "Lego"] },
 ] as const;
 
 export type CategoryKey = (typeof CATEGORIES)[number]["key"];
+type Category = (typeof CATEGORIES)[number];
 
 /** What the guided search holds; kept by the page so "Edit search" can bring it back. */
 export interface TasteForm {
-  loves: Favorite[];
   want: CategoryKey | null;
+  loves: Favorite[];
   where: string;
 }
 
-export const EMPTY_FORM: TasteForm = { loves: [], want: null, where: "" };
+export const EMPTY_FORM: TasteForm = { want: null, loves: [], where: "" };
 
 export interface Search {
   /** What the user sees. */
@@ -42,13 +54,10 @@ export interface Search {
   title: string;
 }
 
-const STARTERS: Favorite[] = [
-  { name: "Radiohead", id: "70CAE5BF-2F4C-445C-A3E5-4EDACFC3591C", type: "artist" },
-  { name: "Studio Ghibli" },
-  { name: "The Bear" },
-  { name: "Taylor Swift" },
-  { name: "Dune" },
-];
+// Popular picks with a known Qloo ID skip the agent's lookup.
+const KNOWN_IDS: Record<string, Favorite> = {
+  Radiohead: { name: "Radiohead", id: "70CAE5BF-2F4C-445C-A3E5-4EDACFC3591C", type: "artist" },
+};
 
 const TYPE_LABEL: Record<string, string> = {
   tv_show: "TV show",
@@ -66,11 +75,57 @@ const TYPE_LABEL: Record<string, string> = {
   videogame: "Video game",
 };
 
+function buildSearch(want: Category, loves: Favorite[], where: string): Search {
+  const city = want.place ? where.trim() : "";
+  const ask = `Recommend ${want.phrase}${city ? ` in ${city}` : ""} that match my taste.`;
+  const names = loves.map((f) => f.name).join(", ");
+  const tagged = loves.map((f) => (f.id ? `${f.name} [${f.id}]` : f.name)).join(", ");
+  const known = loves
+    .filter((f) => f.id)
+    .map((f) => ({ id: f.id!, name: f.name, type: f.type ?? "", image: f.image, tags: [] }));
+  return {
+    display: `I love ${names}. ${ask}`,
+    content: `I love ${tagged}. ${ask}`,
+    known,
+    title: `${want.title}${city ? ` in ${city}` : ""} for you`,
+  };
+}
+
+function hintFor(want: Category | null, count: number) {
+  if (!want) return "Pick what we should find.";
+  if (count === 0) return "Add at least one thing you love.";
+  return "Takes about 10–20 seconds.";
+}
+
 function Check() {
   return (
     <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3.5 8.5l3 3 6-7" />
     </svg>
+  );
+}
+
+function FavoriteChip({ f, onRemove }: { f: Favorite; onRemove?: () => void }) {
+  return (
+    <span className={`flex items-center gap-1.5 rounded-full bg-forest py-0.5 pl-0.5 text-sm text-forest-ink ${onRemove ? "pr-0.5" : "pr-3"}`}>
+      {f.image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={f.image} alt="" className="h-6 w-6 rounded-full object-cover" />
+      ) : (
+        <span className="w-1.5" />
+      )}
+      {f.name}
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove ${f.name}`}
+          className="flex h-7 w-7 items-center justify-center rounded-full text-base hover:bg-black/15"
+        >
+          ×
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -81,7 +136,6 @@ function Step({
   state,
   title,
   titleId,
-  hint,
   last,
   children,
 }: {
@@ -89,7 +143,6 @@ function Step({
   state: StepState;
   title: string;
   titleId: string;
-  hint?: string;
   last?: boolean;
   children: ReactNode;
 }) {
@@ -114,39 +167,49 @@ function Step({
         {state === "done" ? <Check /> : n}
       </span>
       <div className="min-w-0 flex-1 pt-1">
-        <h2 id={titleId} className="font-display text-[17px] font-semibold leading-tight">
+        <h2 id={titleId} className={`font-display text-[17px] font-semibold leading-tight ${state === "todo" ? "text-muted" : ""}`}>
           {title}
           {state === "done" && <span className="sr-only"> (done)</span>}
         </h2>
-        {hint && <p className="mt-0.5 text-sm text-muted">{hint}</p>}
         <div className="mt-2.5">{children}</div>
       </div>
     </li>
   );
 }
 
-export function TasteBuilder({
+/** Step 2, in a dialog: type favorites with Qloo autocomplete, then find matches. */
+function FavoritesDialog({
+  want,
   form,
   onChange,
+  onClose,
   onSubmit,
   busy,
-  findRef,
 }: {
+  want: Category;
   form: TasteForm;
   onChange: (f: TasteForm) => void;
+  onClose: () => void;
   onSubmit: (s: Search) => void;
   busy: boolean;
-  findRef?: Ref<HTMLButtonElement>;
 }) {
   const { loves, where } = form;
-  const want = CATEGORIES.find((c) => c.key === form.want) ?? null;
   const [draft, setDraft] = useState("");
   const [suggestions, setSuggestions] = useState<Favorite[]>([]);
   const [highlight, setHighlight] = useState(-1);
-  const [open, setOpen] = useState(false);
   const ids = useId();
   const listId = `${ids}-list`;
+  const panel = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const find = useRef<HTMLButtonElement>(null);
+  // Start in the text box, or on Find when favorites are already filled in (e.g. the example).
+  const initial = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    initial.current = loves.length ? find.current : input.current;
+    // only on open
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useDialog(panel, initial, onClose);
 
   // Debounced Qloo autocomplete.
   useEffect(() => {
@@ -162,7 +225,6 @@ export function TasteBuilder({
         const body = await res.json();
         setSuggestions(body.results ?? []);
         setHighlight(-1);
-        setOpen(true);
       } catch {
         // aborted or offline: keep free-text entry working
       }
@@ -180,79 +242,71 @@ export function TasteBuilder({
     }
     setDraft("");
     setSuggestions([]);
-    setOpen(false);
-    input.current?.focus();
-  }
-
-  function remove(f: Favorite) {
-    onChange({ ...form, loves: loves.filter((x) => x !== f) });
     input.current?.focus();
   }
 
   const pending = draft.trim();
   const all = pending ? [...loves, { name: pending }] : loves;
-  const ready = all.length > 0 && !!want && !busy;
+  const ready = all.length > 0 && !busy;
+  const showList = suggestions.length > 0;
 
   function submit() {
-    if (!ready || !want) return;
-    const city = want.place ? where.trim() : "";
-    const ask = `Recommend ${want.phrase}${city ? ` in ${city}` : ""} that match my taste.`;
-    const names = all.map((f) => f.name).join(", ");
-    const tagged = all.map((f) => (f.id ? `${f.name} [${f.id}]` : f.name)).join(", ");
-    const known = all
-      .filter((f) => f.id)
-      .map((f) => ({ id: f.id!, name: f.name, type: f.type ?? "", image: f.image, tags: [] }));
-    onSubmit({
-      display: `I love ${names}. ${ask}`,
-      content: `I love ${tagged}. ${ask}`,
-      known,
-      title: `${want.title}${city ? ` in ${city}` : ""} for you`,
-    });
+    if (!ready) return;
+    if (pending) onChange({ ...form, loves: all });
+    onSubmit(buildSearch(want, all, where));
   }
 
-  const showList = open && suggestions.length > 0;
-  const s1: StepState = all.length > 0 ? "done" : "current";
-  const s2: StepState = want ? "done" : s1 === "done" ? "current" : "todo";
-  const s3: StepState = s1 === "done" && s2 === "done" ? "current" : "todo";
-
   return (
-    <ol>
-      <Step
-        n={1}
-        state={s1}
-        title="What do you love?"
-        titleId={`${ids}-s1`}
-        hint="Add a few artists, films, shows, books or places."
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 sm:items-center sm:p-4"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${ids}-title`}
+        aria-describedby={`${ids}-desc`}
+        className="flex max-h-[92dvh] w-full flex-col rounded-t-3xl border border-line bg-surface sm:max-w-lg sm:rounded-3xl"
       >
-        <div className="relative">
+        <div className="flex shrink-0 items-start gap-3 px-5 pb-2 pt-5 sm:px-6">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-muted">
+              Step 2 of 3: finding {want.phrase}
+            </p>
+            <h2 id={`${ids}-title`} className="mt-0.5 font-display text-2xl font-bold tracking-tight">
+              What do you love?
+            </h2>
+            <p id={`${ids}-desc`} className="mt-1 text-sm text-muted">
+              Add a few {want.phrase} you love. Other favorites, like music or shows, help too.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="-mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-muted hover:bg-paper hover:text-ink"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-2 sm:px-6">
           <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-line bg-paper p-1.5 focus-within:border-forest">
             {loves.map((l) => (
-              <span
+              <FavoriteChip
                 key={l.id ?? l.name}
-                className="flex items-center gap-1.5 rounded-full bg-forest py-0.5 pl-0.5 pr-0.5 text-sm text-forest-ink"
-              >
-                {l.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={l.image} alt="" className="h-6 w-6 rounded-full object-cover" />
-                ) : (
-                  <span className="w-1.5" />
-                )}
-                {l.name}
-                <button
-                  type="button"
-                  onClick={() => remove(l)}
-                  aria-label={`Remove ${l.name}`}
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-base hover:bg-black/15"
-                >
-                  ×
-                </button>
-              </span>
+                f={l}
+                onRemove={() => {
+                  onChange({ ...form, loves: loves.filter((x) => x !== l) });
+                  input.current?.focus();
+                }}
+              />
             ))}
             <input
               ref={input}
-              id={`${ids}-loves`}
               role="combobox"
-              aria-labelledby={`${ids}-s1`}
+              aria-labelledby={`${ids}-title`}
               aria-expanded={showList}
               aria-controls={listId}
               aria-autocomplete="list"
@@ -260,39 +314,33 @@ export function TasteBuilder({
               autoComplete="off"
               value={draft}
               onChange={(e) => (e.target.value.endsWith(",") ? add({ name: e.target.value }) : setDraft(e.target.value))}
-              onFocus={() => setOpen(true)}
-              onBlur={() => setTimeout(() => setOpen(false), 150)}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown" && suggestions.length) {
                   e.preventDefault();
-                  setOpen(true);
                   setHighlight((h) => Math.min(h + 1, suggestions.length - 1));
                 } else if (e.key === "ArrowUp" && suggestions.length) {
                   e.preventDefault();
                   setHighlight((h) => Math.max(h - 1, -1));
-                } else if (e.key === "Escape") {
-                  setOpen(false);
+                } else if (e.key === "Escape" && showList) {
+                  // close the suggestions, not the dialog
+                  e.stopPropagation();
+                  setSuggestions([]);
                 } else if (e.key === "Enter") {
                   e.preventDefault();
-                  if (showList && highlight >= 0) add(suggestions[highlight]);
+                  if (highlight >= 0 && suggestions[highlight]) add(suggestions[highlight]);
                   else if (pending) add({ name: pending });
                   else submit();
                 } else if (e.key === "Backspace" && !draft && loves.length) {
                   onChange({ ...form, loves: loves.slice(0, -1) });
                 }
               }}
-              placeholder={loves.length ? "Add another" : "Start typing, e.g. Radiohead"}
-              className="min-h-9 min-w-36 flex-1 bg-transparent px-2 text-[15px] outline-none placeholder:text-muted focus-visible:outline-none"
+              placeholder={loves.length ? "Add another" : `Start typing, e.g. ${want.popular[0]}`}
+              className="min-h-10 min-w-36 flex-1 bg-transparent px-2 text-base outline-none placeholder:text-muted focus-visible:outline-none"
             />
           </div>
 
           {showList && (
-            <ul
-              id={listId}
-              role="listbox"
-              aria-label="Suggestions from Qloo"
-              className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-lg"
-            >
+            <ul id={listId} role="listbox" aria-label="Suggestions from Qloo" className="mt-1.5 rounded-xl border border-line py-1">
               {suggestions.map((s, i) => (
                 <li
                   key={s.id}
@@ -304,7 +352,7 @@ export function TasteBuilder({
                     add(s);
                   }}
                   onMouseEnter={() => setHighlight(i)}
-                  className={`flex cursor-pointer items-center gap-2.5 px-2.5 py-1.5 ${i === highlight ? "bg-paper" : ""}`}
+                  className={`flex min-h-11 cursor-pointer items-center gap-2.5 px-2.5 py-1.5 ${i === highlight ? "bg-paper" : ""}`}
                 >
                   {s.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -320,66 +368,44 @@ export function TasteBuilder({
               ))}
             </ul>
           )}
-        </div>
 
-        {loves.length === 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted">Popular:</span>
-            {STARTERS.map((s) => (
-              <button
-                key={s.name}
-                type="button"
-                onClick={() => add(s)}
-                className="min-h-8 rounded-full border border-dashed border-line px-2.5 text-xs text-muted hover:border-forest hover:text-ink"
-              >
-                <span aria-hidden="true">+ </span>
-                {s.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </Step>
+          {loves.length === 0 && !showList && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted">Popular:</span>
+              {want.popular.map((name): Favorite => KNOWN_IDS[name] ?? { name }).map((s) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  onClick={() => add(s)}
+                  className="min-h-8 rounded-full border border-dashed border-line px-2.5 text-xs text-muted hover:border-forest hover:text-ink"
+                >
+                  <span aria-hidden="true">+ </span>
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
 
-      <Step n={2} state={s2} title="What should we find?" titleId={`${ids}-s2`}>
-        <div role="radiogroup" aria-labelledby={`${ids}-s2`} className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((c) => (
-            <label key={c.key} className="cursor-pointer">
+          {want.place && (
+            <div className="mt-4">
+              <label htmlFor={`${ids}-where`} className="block text-sm font-medium">
+                Where? <span className="font-normal text-muted">City or neighborhood, optional</span>
+              </label>
               <input
-                type="radio"
-                name={`${ids}-want`}
-                value={c.key}
-                checked={form.want === c.key}
-                onChange={() => onChange({ ...form, want: c.key })}
-                className="peer sr-only"
+                id={`${ids}-where`}
+                value={where}
+                onChange={(e) => onChange({ ...form, where: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+                placeholder="e.g. Lisbon"
+                className="mt-1.5 min-h-10 w-full rounded-xl border border-line bg-paper px-3 text-base outline-none placeholder:text-muted focus:border-forest focus-visible:outline-none"
               />
-              <span className="flex min-h-9 items-center rounded-full border border-line px-3.5 text-sm hover:border-forest peer-checked:border-forest peer-checked:bg-forest peer-checked:text-forest-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-forest">
-                {c.label}
-              </span>
-            </label>
-          ))}
+            </div>
+          )}
         </div>
 
-        {want?.place && (
-          <div className="mt-3">
-            <label htmlFor={`${ids}-where`} className="block text-sm font-medium">
-              Where? <span className="font-normal text-muted">City or neighborhood, optional</span>
-            </label>
-            <input
-              id={`${ids}-where`}
-              value={where}
-              onChange={(e) => onChange({ ...form, where: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-              placeholder="e.g. Lisbon"
-              className="mt-1.5 min-h-10 w-full max-w-xs rounded-xl border border-line bg-paper px-3 text-[15px] outline-none placeholder:text-muted focus:border-forest focus-visible:outline-none"
-            />
-          </div>
-        )}
-      </Step>
-
-      <Step n={3} state={s3} title="Get your matches" titleId={`${ids}-s3`} last>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-5 py-4 sm:px-6">
           <button
-            ref={findRef}
+            ref={find}
             type="button"
             onClick={submit}
             disabled={!ready}
@@ -388,16 +414,121 @@ export function TasteBuilder({
             {busy ? "Finding matches…" : "Find my matches"}
           </button>
           <p aria-live="polite" className="text-sm text-muted">
-            {busy
-              ? ""
-              : all.length === 0
-                ? "Add at least one favorite first."
-                : !want
-                  ? "Pick what we should find."
-                  : "Takes about 10–20 seconds."}
+            {busy ? "" : hintFor(want, all.length)}
           </p>
         </div>
-      </Step>
-    </ol>
+      </div>
+    </div>
+  );
+}
+
+export function TasteBuilder({
+  form,
+  onChange,
+  onSubmit,
+  busy,
+  picking,
+  onPicking,
+}: {
+  form: TasteForm;
+  onChange: (f: TasteForm) => void;
+  onSubmit: (s: Search) => void;
+  busy: boolean;
+  /** Whether the favorites dialog is open; kept by the page so the example can open it. */
+  picking: boolean;
+  onPicking: (open: boolean) => void;
+}) {
+  const ids = useId();
+  const want = CATEGORIES.find((c) => c.key === form.want) ?? null;
+  const { loves } = form;
+  const ready = !!want && loves.length > 0 && !busy;
+
+  const s1: StepState = want ? "done" : "current";
+  const s2: StepState = loves.length ? "done" : want ? "current" : "todo";
+  const s3: StepState = want && loves.length ? "current" : "todo";
+
+  function choose(c: Category) {
+    onChange({ ...form, want: c.key, where: c.place ? form.where : "" });
+    onPicking(true);
+  }
+
+  return (
+    <>
+      <ol>
+        <Step n={1} state={s1} title="What should we find?" titleId={`${ids}-s1`}>
+          <div role="group" aria-labelledby={`${ids}-s1`} className="flex flex-wrap gap-1.5">
+            {CATEGORIES.map((c) => {
+              const on = form.want === c.key;
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => choose(c)}
+                  className={`flex min-h-9 items-center rounded-full border px-3.5 text-sm ${
+                    on ? "border-forest bg-forest text-forest-ink" : "border-line hover:border-forest"
+                  }`}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </Step>
+
+        <Step n={2} state={s2} title="What do you love?" titleId={`${ids}-s2`}>
+          {loves.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {loves.map((l) => (
+                <FavoriteChip key={l.id ?? l.name} f={l} />
+              ))}
+              {want?.place && form.where.trim() && <span className="text-sm text-muted">in {form.where.trim()}</span>}
+              <button
+                type="button"
+                onClick={() => onPicking(true)}
+                className="min-h-9 rounded-lg px-2 text-sm font-medium text-forest underline underline-offset-4 hover:text-ink"
+              >
+                Edit
+              </button>
+            </div>
+          ) : want ? (
+            <button
+              type="button"
+              onClick={() => onPicking(true)}
+              className="min-h-10 rounded-xl border border-dashed border-forest px-4 text-sm font-medium text-forest hover:bg-paper"
+            >
+              <span aria-hidden="true">+ </span>Add things you love
+            </button>
+          ) : (
+            <p className="text-sm text-muted">Pick a category first.</p>
+          )}
+        </Step>
+
+        <Step n={3} state={s3} title="Get your matches" titleId={`${ids}-s3`} last>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <button
+              type="button"
+              onClick={() => want && onSubmit(buildSearch(want, loves, form.where))}
+              disabled={!ready}
+              className="min-h-11 w-full rounded-xl bg-forest px-6 font-medium text-forest-ink disabled:opacity-35 sm:w-auto"
+            >
+              {busy ? "Finding matches…" : "Find my matches"}
+            </button>
+            <p className="text-sm text-muted">{busy ? "" : hintFor(want, loves.length)}</p>
+          </div>
+        </Step>
+      </ol>
+
+      {picking && want && (
+        <FavoritesDialog
+          want={want}
+          form={form}
+          onChange={onChange}
+          onClose={() => onPicking(false)}
+          onSubmit={onSubmit}
+          busy={busy}
+        />
+      )}
+    </>
   );
 }

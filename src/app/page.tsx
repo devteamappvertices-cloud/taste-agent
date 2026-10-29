@@ -161,8 +161,8 @@ export default function Home() {
   const [selected, setSelected] = useState<EntityCard | null>(null);
   const [mode, setMode] = useState<"guided" | "free">("guided");
   const [form, setForm] = useState<TasteForm>(EMPTY_FORM);
+  const [picking, setPicking] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
-  const findButton = useRef<HTMLButtonElement>(null);
 
   /** Start over with an empty form. */
   function reset() {
@@ -172,6 +172,7 @@ export default function Home() {
     setInput("");
     setForm(EMPTY_FORM);
     setMode("guided");
+    setPicking(false);
   }
 
   /** Go back to the start screen with the last search filled in. */
@@ -186,14 +187,20 @@ export default function Home() {
     setSelected(null);
   }
 
+  /** Fills in the Radiohead example and opens it ready to run; nothing is sent until Find. */
   function applyExample() {
     setMode("guided");
     setForm({
-      loves: [{ name: "Radiohead", id: RADIOHEAD_ID, type: "artist", image: RADIOHEAD_IMAGE }],
       want: "movies",
+      loves: [{ name: "Radiohead", id: RADIOHEAD_ID, type: "artist", image: RADIOHEAD_IMAGE }],
       where: "",
     });
-    setTimeout(() => findButton.current?.focus(), 0);
+    setPicking(true);
+  }
+
+  function search(s: Search) {
+    setPicking(false);
+    send(s.display, s);
   }
 
   function prefill(text: string) {
@@ -398,7 +405,14 @@ export default function Home() {
           <div className="rounded-3xl border border-line bg-surface p-5 sm:p-7">
             {mode === "guided" ? (
               <>
-                <TasteBuilder form={form} onChange={setForm} onSubmit={(s: Search) => send(s.display, s)} busy={busy} findRef={findButton} />
+                <TasteBuilder
+                  form={form}
+                  onChange={setForm}
+                  onSubmit={search}
+                  busy={busy}
+                  picking={picking}
+                  onPicking={setPicking}
+                />
                 <p className="mt-6 border-t border-line pt-4 text-sm text-muted">
                   Prefer to type?{" "}
                   <button
