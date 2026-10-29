@@ -93,8 +93,9 @@ export function MatchCard({
     >
       <Thumb e={e} className={`shrink-0 rounded-xl ${featured ? "h-24 w-24 text-3xl sm:h-32 sm:w-32" : "h-16 w-16 text-xl"}`} />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex items-start gap-3">
-          <span className="min-w-0 flex-1">
+        {/* The score drops under the name when the card is too narrow for both side by side. */}
+        <span className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
+          <span className="min-w-[8rem] flex-1">
             <span className="block text-xs text-muted">
               {featured ? "Best match" : `#${rank}`}
               <span className="sr-only">: </span>

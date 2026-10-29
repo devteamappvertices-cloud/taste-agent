@@ -369,7 +369,7 @@ export default function Home() {
     return (
       <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
         {header}
-        <main className="mx-auto grid w-full max-w-6xl flex-1 content-center items-center gap-x-14 gap-y-8 px-4 py-6 lg:min-h-0 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:overflow-y-auto">
+        <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-[minmax(0,1fr)] content-center items-center gap-x-14 gap-y-8 px-4 py-6 lg:min-h-0 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:overflow-y-auto">
           {/* What this is */}
           <div>
             <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight xl:text-5xl">
@@ -483,7 +483,7 @@ export default function Home() {
       <p role="status" className="sr-only">
         {status}
       </p>
-      <main className="mx-auto grid w-full max-w-[90rem] flex-1 lg:min-h-0 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+      <main className="mx-auto grid w-full max-w-[90rem] flex-1 grid-cols-[minmax(0,1fr)] lg:min-h-0 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         {/* Matches */}
         <section
           aria-labelledby="results-title"
@@ -644,7 +644,7 @@ export default function Home() {
         </section>
 
         {/* Refine */}
-        <div className="sticky bottom-0 order-3 border-t border-line bg-paper px-4 py-3 lg:static lg:col-start-1 lg:row-start-2 lg:border-r">
+        <div className="sticky bottom-0 order-3 border-t border-line bg-paper px-4 py-2.5 lg:py-3 lg:static lg:col-start-1 lg:row-start-2 lg:border-r">
           {!busy && active?.text && !active.error && (
             <div className="-mx-4 mb-2.5 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
               {FOLLOW_UPS.map((f) => (
@@ -665,7 +665,7 @@ export default function Home() {
             onChange={setInput}
             onSend={(text) => send(text)}
             busy={busy}
-            placeholder="Refine it: cheaper, closer, more like the second one…"
+            placeholder="Refine it: cheaper, closer…"
           />
         </div>
       </main>
