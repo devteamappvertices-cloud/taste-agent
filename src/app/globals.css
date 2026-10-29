@@ -1,6 +1,19 @@
 @import "tailwindcss";
 
+/* Dark follows the system setting unless the navbar toggle sets data-theme on <html>. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"] *) {
+    @slot;
+  }
+}
+
 :root {
+  color-scheme: light;
   --paper: #f3f6f2;
   --surface: #ffffff;
   --ink: #14231e;
@@ -12,7 +25,8 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --paper: #0f1714;
     --surface: #16211d;
     --ink: #e8efea;
@@ -22,6 +36,18 @@
     --forest-ink: #0f1714;
     --marigold: #f0b456;
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0f1714;
+  --surface: #16211d;
+  --ink: #e8efea;
+  --muted: #93a39c;
+  --line: #26332e;
+  --forest: #5fb394;
+  --forest-ink: #0f1714;
+  --marigold: #f0b456;
 }
 
 @theme inline {

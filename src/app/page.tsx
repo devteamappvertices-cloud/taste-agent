@@ -8,6 +8,7 @@ import { reasonFor, splitAnswer, type Answer } from "@/lib/answer";
 import { Composer } from "@/components/Composer";
 import { MatchCard, MatchDetail, MatchLens, MatchSkeleton } from "@/components/Matches";
 import { LogoMark } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { EMPTY_FORM, TasteBuilder, type Search, type TasteForm } from "@/components/TasteBuilder";
 
 interface Step {
@@ -331,29 +332,35 @@ export default function Home() {
       <div className={`mx-auto flex items-center justify-between gap-3 px-4 py-2.5 ${started ? "max-w-[90rem]" : "max-w-6xl"}`}>
         <button type="button" onClick={reset} className="flex items-center gap-2 text-left" aria-label="Taste Agent, start over">
           <LogoMark />
-          <span className="whitespace-nowrap font-display text-lg font-bold tracking-tight">Taste Agent</span>
+          {/* On phones the results header needs the room for its buttons. */}
+          <span className={`whitespace-nowrap font-display text-lg font-bold tracking-tight ${started ? "hidden sm:inline" : ""}`}>
+            Taste Agent
+          </span>
           <span className="hidden text-xs text-muted md:inline">Personal recommendations, powered by Qloo</span>
         </button>
-        {started && (
-          <div className="flex shrink-0 gap-1.5 sm:gap-2">
-            <button
-              type="button"
-              onClick={editSearch}
-              disabled={busy}
-              className="min-h-9 whitespace-nowrap rounded-full border border-line px-3 text-sm hover:border-forest disabled:opacity-40 sm:px-3.5"
-            >
-              Edit search
-            </button>
-            <button
-              type="button"
-              onClick={reset}
-              disabled={busy}
-              className="min-h-9 whitespace-nowrap rounded-full bg-forest px-3 text-sm font-medium text-forest-ink disabled:opacity-40 sm:px-3.5"
-            >
-              New search
-            </button>
-          </div>
-        )}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <ThemeToggle />
+          {started && (
+            <>
+              <button
+                type="button"
+                onClick={editSearch}
+                disabled={busy}
+                className="min-h-9 whitespace-nowrap rounded-full border border-line px-3 text-sm hover:border-forest disabled:opacity-40 sm:px-3.5"
+              >
+                Edit search
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                disabled={busy}
+                className="min-h-9 whitespace-nowrap rounded-full bg-forest px-3 text-sm font-medium text-forest-ink disabled:opacity-40 sm:px-3.5"
+              >
+                New search
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
+import { THEME_SCRIPT } from "@/components/ThemeToggle";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
@@ -23,7 +24,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className={`${display.variable} ${body.variable} font-sans antialiased`}>{children}</body>
     </html>
   );
