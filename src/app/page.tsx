@@ -7,7 +7,7 @@ import type { EntityCard } from "@/lib/qloo";
 import { TYPE_PLURAL } from "@/lib/categories";
 import { outsideFranchise, picks, reasonFor, splitAnswer } from "@/lib/answer";
 import { Composer } from "@/components/Composer";
-import { CommonGround, ExploreBeyond, MatchDetail, PosterCard, PosterSkeleton } from "@/components/Matches";
+import { Carousel, CommonGround, ExploreBeyond, MatchDetail, PosterCard, PosterSkeleton } from "@/components/Matches";
 import { LogoMark } from "@/components/Logo";
 import { Start, type Quick } from "@/components/Start";
 import { AccountMenu, Sidebar } from "@/components/Sidebar";
@@ -42,9 +42,6 @@ interface Turn {
 }
 
 const SAVED = "taste-agent:turns";
-
-/** Matches shown before "Show all": one row on wide screens. */
-const FIRST = 5;
 
 const FOLLOW_UPS: Record<string, string[]> = {
   place: ["More like these", "Cheaper options", "Less touristy"],
@@ -105,7 +102,6 @@ export default function Home() {
   const [drawer, setDrawer] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const [toDelete, setToDelete] = useState<SavedChat | null>(null);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   // Browser back works like the Back buttons: detail -> results -> start. `pushed` counts our history entries.
   const pushed = useRef(0);
@@ -178,7 +174,6 @@ export default function Home() {
     setInput("");
     setChatId(null);
     setDrawer(false);
-    setExpanded(new Set());
     window.scrollTo({ top: 0 });
   }
 
@@ -189,7 +184,6 @@ export default function Home() {
     if (!turns.length) push();
     setTurns(restored);
     setChatId(c.id);
-    setExpanded(new Set());
     setSelected(null);
     setDrawer(false);
     window.scrollTo({ top: 0 });
@@ -564,58 +558,54 @@ export default function Home() {
 
                 {(shown.length > 0 || running) && (
                   <div>
-                    <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                      <h2 className="font-display text-2xl font-bold tracking-tight">Top matches</h2>
-                      {list.length > 0 ? (
-                        <span className="text-sm text-muted">{list.length} picks, best first</span>
-                      ) : (
-                        shown.length > 0 && <span className="text-sm text-muted">Straight from Qloo. The agent is choosing your best ones…</span>
-                      )}
-                    </div>
-                    <ul className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
+                    <Carousel
+                      key={shown.length ? "picks" : "loading"}
+                      title="Top matches"
+                      meta={
+                        list.length > 0
+                          ? `${list.length} picks, best first`
+                          : shown.length > 0
+                            ? "Straight from Qloo. The agent is choosing your best ones…"
+                            : undefined
+                      }
+                    >
                       {shown.length > 0
-                        ? (expanded.has(idx) ? shown : shown.slice(0, FIRST)).map((e, i) => (
-                            <li key={e.id}>
-                              <PosterCard
-                                e={e}
-                                i={i}
-                                seeds={seeds}
-                                reason={reasonFor(bullets, e.name)}
-                                onOpen={() => openDetail(e, reasonFor(bullets, e.name))}
-                              />
-                            </li>
+                        ? shown.map((e, i) => (
+                            <PosterCard
+                              key={e.id}
+                              e={e}
+                              i={i}
+                              seeds={seeds}
+                              reason={reasonFor(bullets, e.name)}
+                              onOpen={() => openDetail(e, reasonFor(bullets, e.name))}
+                            />
                           ))
-                        : Array.from({ length: 5 }, (_, i) => (
-                            <li key={i} className={i > 1 ? "hidden sm:block" : ""}>
-                              <PosterSkeleton i={i} />
-                            </li>
-                          ))}
-                    </ul>
-                    {shown.length > FIRST && (
-                      <div className="mt-6 flex justify-center">
-                        <button
-                          type="button"
-                          aria-expanded={expanded.has(idx)}
-                          onClick={() => {
-                            const next = new Set(expanded);
-                            if (next.has(idx)) next.delete(idx);
-                            else next.add(idx);
-                            setExpanded(next);
-                          }}
-                          className="rounded-full bg-surface px-5 py-2 text-sm font-semibold ring-1 ring-line transition-colors hover:text-forest hover:ring-forest"
-                        >
-                          {expanded.has(idx) ? "Show less" : `Show all ${shown.length} matches`}
-                        </button>
-                      </div>
-                    )}
+                        : Array.from({ length: 5 }, (_, i) => <PosterSkeleton key={i} i={i} />)}
+                    </Carousel>
                     {!running && t.steps.length > 0 && (
-                      <details className="mt-5 text-sm text-muted">
-                        <summary className="cursor-pointer select-none hover:text-ink">How these were found ({t.steps.length} Qloo {t.steps.length === 1 ? "call" : "calls"})</summary>
-                        <ol className="mt-2 list-decimal space-y-1 pl-5">
-                          {t.steps.map((s) => (
-                            <li key={s.id}>
-                              {describe(s)}
-                              {s.error ? " (failed)" : s.count !== undefined ? `: ${s.count} results` : ""}
+                      // Proof the picks come from Qloo's data, not the model's memory: every lookup the agent made.
+                      <details className="group mt-4 w-fit max-w-full rounded-2xl bg-surface text-sm ring-1 ring-line open:w-full open:max-w-xl">
+                        <summary className="flex list-none items-center gap-2 px-3.5 py-2 text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+                          <span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-full bg-mint text-[11px] font-bold text-forest">
+                            Q
+                          </span>
+                          Found with {t.steps.length} Qloo {t.steps.length === 1 ? "lookup" : "lookups"}
+                          <span aria-hidden="true" className="text-xs transition-transform group-open:rotate-180">
+                            ▾
+                          </span>
+                        </summary>
+                        <ol className="space-y-2 border-t border-line px-3.5 py-3">
+                          {t.steps.map((s, n) => (
+                            <li key={s.id} className="flex gap-2.5">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-paper text-[11px] font-semibold text-muted ring-1 ring-line">
+                                {n + 1}
+                              </span>
+                              <span>
+                                {describe(s)}
+                                <span className="text-muted">
+                                  {s.error ? " (failed)" : s.count !== undefined ? ` · ${s.count} results` : ""}
+                                </span>
+                              </span>
                             </li>
                           ))}
                         </ol>

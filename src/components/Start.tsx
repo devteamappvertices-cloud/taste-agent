@@ -169,7 +169,7 @@ export function Start({
         <p id="find-label" className="text-center text-sm text-muted">
           What should I find? <span className="text-muted/80">(optional)</span>
         </p>
-        <div role="radiogroup" aria-labelledby="find-label" className="mt-2 flex flex-wrap justify-center gap-2">
+        <div role="radiogroup" aria-labelledby="find-label" className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4 py-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
           {[null, ...CATEGORIES].map((c) => {
             const on = (want?.key ?? null) === (c?.key ?? null);
             return (
@@ -182,7 +182,7 @@ export function Start({
                   setWant(c);
                   setNeedCity(false);
                 }}
-                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
                   on ? "bg-forest text-forest-ink" : "bg-surface ring-1 ring-line hover:text-forest hover:ring-forest"
                 }`}
               >
@@ -252,9 +252,9 @@ export function Start({
         </section>
       )}
 
-      <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+      <ul className="no-scrollbar -mx-4 mt-6 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0">
         {SUGGESTIONS.map((s, i) => (
-          <li key={s.title} className="rise" style={{ ["--i" as string]: 4 + i }}>
+          <li key={s.title} className="rise w-[80%] shrink-0 snap-start sm:w-auto" style={{ ["--i" as string]: 4 + i }}>
             <button
               type="button"
               disabled={busy}

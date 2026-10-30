@@ -147,6 +147,72 @@ export function PosterCard({
   );
 }
 
+function Arrow({ dir, disabled, onClick }: { dir: -1 | 1; disabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={dir < 0 ? "Previous matches" : "Next matches"}
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-surface ring-1 ring-line transition-colors hover:text-forest hover:ring-forest disabled:opacity-35 disabled:hover:text-ink disabled:hover:ring-line"
+    >
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+      </svg>
+    </button>
+  );
+}
+
+/**
+ * One row of cards that scrolls sideways: swipe on phones, arrow buttons beside the title elsewhere.
+ * Shows 2 cards (plus a peek) on phones, 3 on tablets and 5 on wide screens.
+ */
+export function Carousel({ title, meta, children }: { title: string; meta?: React.ReactNode; children: React.ReactNode[] }) {
+  const track = useRef<HTMLUListElement>(null);
+  const [edge, setEdge] = useState({ start: true, end: true });
+
+  function update() {
+    const el = track.current;
+    if (el) setEdge({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 });
+  }
+  useEffect(() => {
+    update();
+    const ro = new ResizeObserver(update);
+    if (track.current) ro.observe(track.current);
+    return () => ro.disconnect();
+  }, [children.length]);
+
+  const page = (dir: -1 | 1) => track.current?.scrollBy({ left: dir * track.current.clientWidth, behavior: "smooth" });
+
+  return (
+    <section aria-label={title}>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="font-display text-2xl font-bold tracking-tight">{title}</h2>
+          {meta && <span className="text-sm text-muted">{meta}</span>}
+        </div>
+        {!(edge.start && edge.end) && (
+          <div className="hidden shrink-0 gap-2 sm:flex">
+            <Arrow dir={-1} disabled={edge.start} onClick={() => page(-1)} />
+            <Arrow dir={1} disabled={edge.end} onClick={() => page(1)} />
+          </div>
+        )}
+      </div>
+      <ul
+        ref={track}
+        onScroll={update}
+        className="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:scroll-px-0 sm:px-0"
+      >
+        {children.map((child, i) => (
+          <li key={i} className="w-[42%] shrink-0 snap-start sm:w-[calc((100%-2rem)/3)] lg:w-[calc((100%-4rem)/5)]">
+            {child}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function PosterSkeleton({ i = 0 }: { i?: number }) {
   return (
     <div className="rise" style={{ ["--i" as string]: i }} aria-hidden="true">

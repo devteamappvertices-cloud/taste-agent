@@ -93,7 +93,7 @@ export function Composer({ id, value, onChange, onSend, busy, placeholder, label
           placeholder={speech.listening ? "Listening… speak now" : placeholder}
           aria-label={label ?? placeholder}
           className={`max-h-40 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 outline-none placeholder:text-muted focus-visible:outline-none ${
-            roomy && !value ? "min-h-[4.5rem] sm:min-h-0" : ""
+            roomy && !value ? "min-h-[5.25rem] sm:min-h-0" : ""
           }`}
         />
         {speech.supported && (
