@@ -169,7 +169,7 @@ export function Start({
         <p id="find-label" className="text-center text-sm text-muted">
           What should I find? <span className="text-muted/80">(optional)</span>
         </p>
-        <div role="radiogroup" aria-labelledby="find-label" className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4 py-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
+        <div role="radiogroup" aria-labelledby="find-label" className="mt-2 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-center">
           {[null, ...CATEGORIES].map((c) => {
             const on = (want?.key ?? null) === (c?.key ?? null);
             return (
@@ -182,7 +182,7 @@ export function Start({
                   setWant(c);
                   setNeedCity(false);
                 }}
-                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2 py-1.5 text-[13px] font-medium transition-colors sm:px-3.5 sm:text-sm ${
                   on ? "bg-forest text-forest-ink" : "bg-surface ring-1 ring-line hover:text-forest hover:ring-forest"
                 }`}
               >
