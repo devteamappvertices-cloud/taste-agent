@@ -166,7 +166,48 @@ export async function getRecommendations(q: InsightsQuery) {
     take: q.take ?? 6,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   })) as any;
-  return (data.results?.entities ?? []).map(toCard) as EntityCard[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw: any[] = data.results?.entities ?? [];
+  const cards = raw.map(toCard);
+  if (q.type !== "destination") return cards;
+  // Qloo has no photos for destinations; borrow each one's lead photo from Wikipedia.
+  return Promise.all(
+    cards.map(async (c, i) => (c.image ? c : { ...c, image: await destinationPhoto(c.name, raw[i].properties?.geocode?.admin1_region) })),
+  );
+}
+
+const photos = new Map<string, Promise<string | undefined>>();
+// Lead images that are flags, seals or maps make poor travel photos.
+const NOT_A_PHOTO = /\.svg$|flag|seal|coat_of_arms|locator|map/i;
+
+function destinationPhoto(name: string, region?: string) {
+  const key = `${name}|${region ?? ""}`;
+  if (!photos.has(key)) {
+    const qs = new URLSearchParams({
+      action: "query",
+      format: "json",
+      generator: "search",
+      gsrsearch: `${name} ${region ?? ""}`.trim(),
+      gsrlimit: "1",
+      prop: "pageimages",
+      piprop: "thumbnail|name",
+      pithumbsize: "640",
+    });
+    photos.set(
+      key,
+      fetch(`https://en.wikipedia.org/w/api.php?${qs}`, {
+        headers: { "User-Agent": "TasteAgent/1.0 (https://taste-agent-omega.vercel.app)" },
+        signal: AbortSignal.timeout(3000),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((body) => {
+          const page = Object.values(body?.query?.pages ?? {})[0] as { pageimage?: string; thumbnail?: { source?: string } } | undefined;
+          return page?.pageimage && !NOT_A_PHOTO.test(page.pageimage) ? page.thumbnail?.source : undefined;
+        })
+        .catch(() => undefined),
+    );
+  }
+  return photos.get(key)!;
 }
 
 export async function getAudienceDemographics(entityIds: string[]) {
