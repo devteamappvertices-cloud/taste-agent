@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { EntityCard } from "@/lib/qloo";
-import { CATEGORIES, cleanQuery, qlooImage, type Category } from "@/lib/categories";
+import { CATEGORIES, qlooImage, type Category } from "@/lib/categories";
+import { readMessage } from "@/lib/message";
 import { Composer } from "@/components/Composer";
 
 /** Direct Qloo query the page runs while the agent works, so matches show in about a second. */
@@ -59,35 +60,13 @@ const SUGGESTIONS = [
   },
 ];
 
-// What they want, read from the message. Order matters: "where should we eat" beats "watch".
-const WANTS: [RegExp, string][] = [
-  [/\b(restaurants?|eat|food|dinner|lunch|brunch|caf[eé]s?)\b/i, "food"],
-  [/\bpodcasts?\b/i, "podcasts"],
-  [/\b(books?|read|novels?)\b/i, "books"],
-  [/\b(tv|shows?|series|binge)\b/i, "tv"],
-  [/\b(movies?|films?|watch)\b/i, "movies"],
-  [/\b(music|artists?|singers?|bands?|songs?|listen|playlist)\b/i, "music"],
-  [/\b(travel|trip|visit|destinations?|vacation|holiday)\b/i, "travel"],
-  [/\b(brands?|shop|shopping|wear|clothes)\b/i, "brands"],
-];
-// Each "loves X" in the message, for one person or several: "I love X and my partner loves Y".
-const FAVORITES =
-  /\b(?:loves?|loved|likes?|liked|enjoys?|enjoyed|adores?|fan of|into|similar to|such as)\s+(.+?)(?=[.?!;]|,?\s+(?:what|which|where|so|recommend|suggest|find|give|show me)\b|$)/gi;
-
 /**
  * Best-effort read of a typed message into a direct Qloo query. If any part is unclear it
  * returns nothing and the agent alone answers.
  */
 async function quickFromText(text: string, picked?: Category | null): Promise<Quick | undefined> {
-  const found = [...text.matchAll(FAVORITES)].map((m) => m[1]);
-  if (!found.length) return;
-  const rest = found.reduce((t, f) => t.replace(f, " "), text);
-  const want = picked ?? CATEGORIES.find((c) => c.key === WANTS.find(([re]) => re.test(rest))?.[1]);
-  if (!want) return;
-  const location = want.place ? text.match(/\bin\s+([A-Z][\w.' -]{1,40}?)\s*[?.!]*$/)?.[1] : undefined;
-  if (want.place && !location) return;
-
-  const names = [...new Set(found.flatMap((f) => f.split(/\s+and\s+|\s*&\s*|,\s*/)).map(cleanQuery).filter(Boolean))].slice(0, 4);
+  const { names, want, location } = readMessage(text, picked);
+  if (!names.length || !want || (want.place && !location)) return;
   const hits = await Promise.all(
     names.map((n) =>
       fetch(`/api/search?q=${encodeURIComponent(n)}`)

@@ -2,7 +2,7 @@
 
 # Taste Agent
 
-**Live demo: https://taste-agent-omega.vercel.app** (no login needed)
+**Live demo: https://taste-agent-omega.vercel.app** (no login needed; an optional free account saves your chats)
 
 **Find what you'll both love.** Taste Agent helps couples, friends and families with different tastes agree on
 what to watch, where to eat, what to play on a road trip and where to travel. Tell it what each of you likes,
@@ -50,8 +50,20 @@ and a Taylor Swift fan can get a dinner spot in New York that suits them both.
 - Taste profile chips showing which Qloo entities the picks are based on
 - Poster grid of ranked matches with Qloo affinity, year, tags and the agent's one-line reason
 - Detail page with "Why this matches you", a trailer, Spotify or Maps link, and "You might also like" from Qloo
-- Follow-ups to refine ("More like these", "Less mainstream", "Cheaper options") in the same conversation
+- Optional "What should I find?" chips (movies, music, food, travel, TV, books, podcasts, brands) and a city box for food
+- Follow-ups to refine ("More like these", "Less mainstream", "Cheaper options", "other than X") in the same conversation;
+  the agent skips your favorites' own franchise and anything you exclude
+- Show all / show less for results, Back buttons, and the browser's Back button steps detail, results, start
+- Optional account (Google, or email and password with password reset): chats save to Firestore and appear in a
+  sidebar, and the start screen suggests "More like ..." from your past searches
 - Works on phones and desktops; keyboard and screen-reader friendly
+
+## Try it in 30 seconds
+
+1. Open the live demo and tap **Movie night for two**.
+2. Matches appear within seconds; each card shows how it balances both favorites ("Oppenheimer 49% · Barbie 51%").
+3. Tap **Less mainstream**, then open a card for "Why this matches you" and "You might also like".
+4. Go back and try **Date night dinner in New York**: every place opens at its exact Google Maps location.
 
 ## Run locally
 
@@ -63,6 +75,18 @@ npm run dev
 
 Open http://localhost:3000. `GET /api/health` checks that both keys are configured.
 
+## Tests
+
+```bash
+npm test             # unit tests: message parsing, pick selection, franchise and exclusion rules
+npm run eval         # end-to-end: API checks, then real agent answers to 13 varied prompts, scored
+npm run eval -- https://taste-agent-omega.vercel.app --api-only   # quick check of the live site
+```
+
+The end-to-end run checks, among other things, that picks are real Qloo entities of the requested type,
+favorites and excluded titles never come back, two people's favorites are blended in one Qloo query,
+"less mainstream" uses Qloo's popularity cap, and restaurants are in the city asked for.
+
 ## How it works
 
 - `src/lib/qloo.ts` – Qloo client (`/search`, `/v2/tags`, `/v2/insights` with explainability, `/v2/analysis/compare`)
@@ -72,7 +96,9 @@ Open http://localhost:3000. `GET /api/health` checks that both keys are configur
 - `src/app/api/search/route.ts` – Qloo search that turns typed text ("I love 3 idiots") into the right entity.
 - `src/app/api/common/route.ts` – "What you have in common" via Qloo compare.
 - `src/app/api/explore/route.ts` – direct Qloo Insights for instant results, "Explore beyond" and "You might also like".
-- `src/app/page.tsx`, `src/components/` – chat start screen, conversation, match cards and detail page.
+- `src/lib/message.ts`, `src/lib/answer.ts` – reading a typed message, and choosing which titles in the answer are picks.
+- `src/lib/firebase.ts` – optional sign-in (Google, email and password) and saved chats in Firestore.
+- `src/app/page.tsx`, `src/components/` – chat start screen, conversation, match cards, detail page and sidebar.
 
 ## Deploy
 

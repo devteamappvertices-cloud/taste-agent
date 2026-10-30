@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import type { AgentEvent } from "@/lib/agent";
 import type { EntityCard } from "@/lib/qloo";
-import { TYPE_PLURAL, franchise } from "@/lib/categories";
+import { TYPE_PLURAL } from "@/lib/categories";
+import { outsideFranchise, picks, reasonFor, splitAnswer } from "@/lib/answer";
 import { Composer } from "@/components/Composer";
 import { CommonGround, ExploreBeyond, MatchDetail, PosterCard, PosterSkeleton } from "@/components/Matches";
 import { LogoMark } from "@/components/Logo";
@@ -72,52 +73,8 @@ function describe(step: Step) {
   }
 }
 
-// Only show cards for Qloo entities the agent actually recommends in its answer,
-// best match first.
-function mentions(text: string, name: string) {
-  // Whole-name match, so a film called "Pi" doesn't match the word "picks".
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "iu").test(text);
-}
-
-// The agent bolds each pick's exact name. Only bolded names count: a title named inside another
-// pick's reason ("like the serious side of Digimon Tamers") is not a pick.
-function picks(t: Turn) {
-  const bold = [...t.text.matchAll(/\*\*(.+?)\*\*/g)].map((m) => m[1]);
-  const seen = new Set<string>();
-  return t.entities
-    .filter((e) => (bold.length ? bold.some((b) => mentions(b, e.name)) : mentions(t.text, e.name)))
-    .sort((a, b) => (b.affinity ?? -1) - (a.affinity ?? -1))
-    .filter((e) => !seen.has(e.name.toLowerCase()) && !!seen.add(e.name.toLowerCase())); // same title, two versions: keep the best
-}
-
-// Instant results skip the favorite's own franchise, which they already know.
-function outsideFranchise(list: EntityCard[], seeds: EntityCard[]) {
-  const keys = seeds.map((s) => franchise(s.name)).filter((k): k is string => !!k);
-  return list.filter((e) => !keys.some((k) => mentions(e.name, k)));
-}
-
 function profile(t: Turn) {
   return t.seeds.map((id) => t.lookups[id]).filter(Boolean);
-}
-
-const BULLET = /^\s*(?:[-*•]|\d+\.)\s+/;
-
-/** The agent answers "one sentence, then `- **Name** reason` bullets"; cards carry the bullets. */
-function splitAnswer(text: string) {
-  const lines = text.split("\n");
-  const bullets = lines.filter((l) => BULLET.test(l)).map((l) => l.replace(BULLET, ""));
-  const summary = lines.filter((l) => !BULLET.test(l)).join("\n").trim();
-  return { summary, bullets };
-}
-
-function reasonFor(bullets: string[], name: string) {
-  const line = bullets.find((b) => mentions(b.match(/\*\*(.+?)\*\*/)?.[1] ?? b, name));
-  return line
-    ?.replace(/\*\*(.+?)\*\*/, "")
-    .replace(/^[\s:,.\-–—]+/, "")
-    .replace(/\*/g, "")
-    .trim();
 }
 
 /** Qloo tags shared by several picks become one-tap refinements. */
@@ -506,11 +463,11 @@ export default function Home() {
   const chips = [...(FOLLOW_UPS[activePicks[0]?.type] ?? FOLLOW_UPS.default), ...tagChips(activePicks)];
 
   return shell(
-    <main id="main" className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6">
-      <button type="button" onClick={goBack} disabled={busy} className="mb-3 rounded-full px-2 py-1 text-sm font-medium text-muted hover:text-forest disabled:opacity-40">
+    <main id="main" className="mx-auto flex min-h-[calc(100dvh-59px)] w-full max-w-7xl flex-col px-4 pt-4 sm:px-6">
+      <button type="button" onClick={goBack} disabled={busy} className="mb-3 self-start rounded-full px-2 py-1 text-sm font-medium text-muted hover:text-forest disabled:opacity-40">
         ← Back
       </button>
-        <div aria-live="polite" className="space-y-6">
+        <div aria-live="polite" className="space-y-6 pb-8">
           {turns.map((t, idx) => {
             const last = idx === turns.length - 1;
             if (t.role === "user") {
@@ -652,8 +609,8 @@ export default function Home() {
           </div>
         )}
 
-        <div className="sticky bottom-0 z-30 -mx-4 mt-8 border-t border-line/70 bg-paper/85 px-4 pb-4 pt-3 backdrop-blur-lg sm:-mx-6 sm:px-6">
-          {!busy && active?.text && !active.error && (
+        <div className="sticky bottom-0 z-30 -mx-4 mt-auto border-t border-line/70 bg-paper/85 px-4 pb-4 pt-3 backdrop-blur-lg sm:-mx-6 sm:px-6">
+          {!busy && activePicks.length > 0 && !active?.error && (
             <div className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
               {chips.map((f) => (
                 <button
