@@ -4,24 +4,49 @@
 
 **Live demo: https://taste-agent-omega.vercel.app** (no login needed)
 
-Find movies, music, food and places that fit your taste. Tell Taste Agent a few things you already love;
-an AI agent (Claude Opus 5.5) searches [Qloo](https://qloo.com)'s taste graph of 250 million titles,
-places and brands, and ranks what matches you in any category, with a match score and a reason for each pick.
+**Find what you'll both love.** Taste Agent helps couples, friends and families with different tastes agree on
+what to watch, where to eat, what to play on a road trip and where to travel. Tell it what each of you likes,
+in your own words ("I love Oppenheimer, my partner loves Barbie. What should we watch?"). An AI agent
+(Claude Opus 5.5) resolves every person's favorites in [Qloo](https://qloo.com)'s taste graph of 250 million
+titles, places and brands, and ranks picks where your tastes overlap, with a match score and a reason it
+works for each of you. It works for one person too.
+
+## The problem
+
+"What should we watch?" and "where should we eat?" are the questions two people with different tastes argue
+about every week. Streaming and review apps recommend for one profile at a time, and a plain chatbot answers
+from memory: it lists the same famous titles for everyone and invents places. Groups end up scrolling,
+compromising on something neither person loves, or giving up.
+
+Taste Agent answers from real taste data instead. Qloo knows which movies, shows, artists, restaurants and
+destinations are loved by people who like *both* of your favorites, even across categories: a movie lover
+and a Taylor Swift fan can get a dinner spot in New York that suits them both.
 
 ## What makes it Qloo-powered
 
 - **Every pick comes from Qloo, not the model's memory.** The agent resolves your favorites to Qloo entities,
-  then calls Qloo Insights to rank matches by taste affinity. The UI shows each Qloo call and its results.
-- **Cross-domain taste.** Music and film favorites predict restaurants, destinations, podcasts and brands.
-- **Autocomplete from Qloo search**, so favorites map to exact Qloo entity IDs and the agent can skip lookups.
-- **Constraints the way Qloo models them:** tag filters (cuisine, ambience, genre) and location for places.
+  then calls Qloo Insights to rank matches by taste affinity. Cards only show Qloo entities, and
+  "How these were found" lists every Qloo call.
+- **Results in about a second.** The app reads the favorite and category from your message, resolves it with
+  Qloo search and shows Qloo Insights matches straight away, while the agent picks and explains the best ones.
+- **Blended taste.** Every person's favorites go to Qloo Insights together as signals, so the ranking favors
+  what sits where your tastes overlap, not what suits only one of you.
+- **Cross-domain taste.** A movie or artist you love predicts restaurants, destinations, podcasts and brands.
+  "Explore beyond" carries the same taste profile into every other category.
+- **Constraints the way Qloo models them:** tag filters (for example restaurants only), location for places,
+  and Qloo tags shared by your matches become one-tap refinements.
+- **Exact places.** Restaurant links open the right spot in Google Maps using Qloo's Google place ID and
+  coordinates, and city names like "New York" resolve to the city, not the state.
 
 ## Features
 
-- Guided search (pick favorites + a category) or free-text questions, with voice input
+- Chat-style start: type what each of you loves and what you want, or tap an example (movie night for two,
+  date night dinner in New York, a show to binge together, road trip music for friends); voice input works too
 - Taste profile chips showing which Qloo entities the picks are based on
-- Ranked matches with Qloo affinity, descriptions, tags and a Google Maps link for places
-- Follow-ups to refine ("More like these", "Less mainstream") and a one-screen layout on desktop
+- Poster grid of ranked matches with Qloo affinity, year, tags and the agent's one-line reason
+- Detail page with "Why this matches you", a trailer, Spotify or Maps link, and "You might also like" from Qloo
+- Follow-ups to refine ("More like these", "Less mainstream", "Cheaper options") in the same conversation
+- Works on phones and desktops; keyboard and screen-reader friendly
 
 ## Run locally
 
@@ -38,8 +63,9 @@ Open http://localhost:3000. `GET /api/health` checks that both keys are configur
 - `src/lib/qloo.ts` – Qloo client (`/search`, `/v2/tags`, `/v2/insights`) with in-memory caching.
 - `src/lib/agent.ts` – Claude tool-use loop exposing Qloo as four tools; streams events to the UI.
 - `src/app/api/chat/route.ts` – streaming NDJSON endpoint with a simple per-IP rate limit.
-- `src/app/api/search/route.ts` – Qloo-backed autocomplete for favorites.
-- `src/app/page.tsx`, `src/components/` – start screen, conversation and match panes.
+- `src/app/api/search/route.ts` – Qloo search that turns typed text ("I love 3 idiots") into the right entity.
+- `src/app/api/explore/route.ts` – direct Qloo Insights for instant results, "Explore beyond" and "You might also like".
+- `src/app/page.tsx`, `src/components/` – chat start screen, conversation, match cards and detail page.
 
 ## Deploy
 

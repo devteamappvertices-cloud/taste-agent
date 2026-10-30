@@ -13,8 +13,28 @@ const body = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Taste Agent",
-  description: "Recommendations grounded in Qloo's cultural taste graph",
+  title: "Taste Agent: find what you'll both love",
+  description:
+    "Different tastes? Tell Taste Agent what each of you likes and get movies, shows, music, restaurants and trips you'll all enjoy, ranked by Qloo's taste graph.",
+  keywords: [
+    "what to watch",
+    "movie recommendations",
+    "TV show recommendations",
+    "music recommendations",
+    "book recommendations",
+    "podcast recommendations",
+    "restaurant recommendations",
+    "travel ideas",
+    "personalized recommendations",
+    "date night ideas",
+    "movie night for couples",
+    "what to watch together",
+    "AI recommendations",
+    "taste profile",
+    "Qloo",
+    "United States",
+    "Canada",
+  ],
 };
 
 export default function RootLayout({

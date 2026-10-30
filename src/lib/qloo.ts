@@ -27,7 +27,24 @@ export interface EntityCard {
   address?: string;
   city?: string;
   image?: string;
+  year?: number;
+  lat?: number;
+  lon?: number;
+  /** Google Maps place ID, for an exact map link. */
+  placeId?: string;
   tags: string[];
+}
+
+// Readable tags first (Qloo's own, genres, cuisines), plot keywords after; drop
+// Wikipedia categories and bare numbers/age bands.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cleanTags(tags: any[]) {
+  const rank = (type: string) => (String(type).endsWith(":media") ? 1 : 0);
+  const names = tags
+    .filter((t) => !String(t.type).endsWith("wikipedia_category") && !/^[\d\s+-]+$/.test(t.name))
+    .sort((a, b) => rank(a.type) - rank(b.type))
+    .map((t) => String(t.name));
+  return [...new Set(names)].slice(0, 8);
 }
 
 const cache = new Map<string, { at: number; data: unknown }>();
@@ -69,15 +86,19 @@ function toCard(e: any): EntityCard {
     address: p.address,
     city: p.geocode?.city,
     image: p.image?.url ?? p.images?.[0]?.url,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tags: (e.tags ?? []).slice(0, 8).map((t: any) => t.name),
+    year: p.release_year ?? p.publication_year,
+    lat: e.location?.lat,
+    lon: e.location?.lon,
+    placeId: (e.external ?? p.external)?.google_place?.[0]?.place_id,
+    tags: cleanTags(e.tags ?? []),
   };
 }
 
-export async function searchEntities(query: string, type?: EntityType, take = 5) {
+export async function searchEntities(query: string, type?: EntityType | EntityType[], take = 5) {
+  const types = [type ?? []].flat();
   const data = (await qlooGet("/search", {
     query,
-    types: type ? `urn:entity:${type}` : undefined,
+    types: types.map((t) => `urn:entity:${t}`).join(",") || undefined,
     take,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   })) as any;
@@ -95,6 +116,19 @@ export async function searchTags(query: string, take = 8) {
   }));
 }
 
+// Qloo reads "New York" as the state, so restaurants came back from Oswego and Gerry, NY.
+const CITY_ALIASES: Record<string, string> = {
+  "new york": "New York City",
+  "new york, ny": "New York City",
+  nyc: "New York City",
+  ny: "New York City",
+  la: "Los Angeles",
+  sf: "San Francisco",
+  dc: "Washington DC",
+  washington: "Washington DC",
+  "washington, dc": "Washington DC",
+};
+
 export interface InsightsQuery {
   type: EntityType;
   seedEntityIds?: string[];
@@ -110,7 +144,7 @@ export async function getRecommendations(q: InsightsQuery) {
     "signal.interests.entities": q.seedEntityIds?.join(","),
     "signal.interests.tags": q.seedTagIds?.join(","),
     "filter.tags": q.requiredTagIds?.join(","),
-    "filter.location.query": q.location,
+    "filter.location.query": q.location && (CITY_ALIASES[q.location.trim().toLowerCase()] ?? q.location),
     take: q.take ?? 6,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   })) as any;

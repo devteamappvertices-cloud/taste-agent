@@ -1,27 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f3f6f2;
+  color-scheme: light;
+  --paper: #f7f8fa;
   --surface: #ffffff;
-  --ink: #14231e;
-  --muted: #5e6e68;
-  --line: #d6ded8;
-  --forest: #1f5c4a;
+  --ink: #0d1424;
+  --muted: #586174;
+  --line: #e4e8ee;
+  --forest: #0a7f56;
+  --forest-bright: #16b37c;
   --forest-ink: #ffffff;
-  --marigold: #e9a23b;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0f1714;
-    --surface: #16211d;
-    --ink: #e8efea;
-    --muted: #93a39c;
-    --line: #26332e;
-    --forest: #5fb394;
-    --forest-ink: #0f1714;
-    --marigold: #f0b456;
-  }
+  --mint: #def5e9;
+  --marigold: #f2b544;
+  --tint-rose: #fde6e8;
+  --tint-lilac: #ebe8fd;
+  --tint-peach: #fdecd9;
+  --tint-sky: #e1effb;
+  --tint-lime: #ebf6dc;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @theme inline {
@@ -31,7 +27,9 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-forest: var(--forest);
+  --color-forest-bright: var(--forest-bright);
   --color-forest-ink: var(--forest-ink);
+  --color-mint: var(--mint);
   --color-marigold: var(--marigold);
   --font-sans: var(--font-body);
   --font-display: var(--font-display);
@@ -50,18 +48,38 @@ body {
   }
 }
 
-.answer p { margin: 0.5em 0; }
-.answer ul, .answer ol { margin: 0.4em 0 0.8em; padding-left: 1.25em; }
+
+/* Views and cards rise in; --i staggers siblings. */
+/* Phones swipe this row sideways; wider screens wrap it, so no hidden overflow there. */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 0.45s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--line) 0%, #f1f3f6 50%, var(--line) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.answer p { margin: 0.4em 0; }
+.answer p:first-child { margin-top: 0; }
+.answer p:last-child { margin-bottom: 0; }
+.answer ul, .answer ol { margin: 0.4em 0 0.6em; padding-left: 1.25em; }
 .answer ul { list-style: disc; }
 .answer ol { list-style: decimal; }
 .answer li { margin: 0.2em 0; }
 .answer strong { font-weight: 600; }
-.answer h1, .answer h2, .answer h3 {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.1rem;
-  margin: 1.2em 0 0.4em;
-}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
