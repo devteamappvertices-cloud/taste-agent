@@ -163,7 +163,14 @@ export function Sidebar({
       <div className="flex items-center gap-2.5 border-t border-line p-3">
         <Avatar user={user} />
         <span className="min-w-0 flex-1 truncate text-sm">{user.displayName ?? user.email}</span>
-        <button type="button" onClick={onSignOut} className="rounded-full px-2.5 py-1 text-xs font-medium text-muted hover:bg-paper hover:text-ink">
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm font-semibold text-red-700 transition-colors hover:border-red-300 hover:bg-red-50"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+          </svg>
           Sign out
         </button>
       </div>
