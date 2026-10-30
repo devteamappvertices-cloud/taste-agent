@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { User } from "firebase/auth";
 import type { SavedChat } from "@/lib/firebase";
+import { LogoMark } from "@/components/Logo";
 
 /** Profile photo, or the first letter of the name when there is none or it fails to load. */
 export function Avatar({ user, size = "h-8 w-8" }: { user: User; size?: string }) {
@@ -109,6 +110,17 @@ export function Sidebar({
 }) {
   const panel = (
     <nav aria-label="Your chats" className="flex h-full flex-col bg-surface">
+      {/* Same height as the page header (60px + its border), so the two line up. */}
+      <button
+        type="button"
+        onClick={onNew}
+        disabled={busy}
+        aria-label="Taste Agent, home"
+        className="flex h-[61px] shrink-0 items-center gap-2.5 border-b border-line px-4 text-left"
+      >
+        <LogoMark className="h-8 w-8" />
+        <span className="font-display text-lg font-bold tracking-tight">Taste Agent</span>
+      </button>
       <div className="p-3">
         <button
           type="button"
@@ -160,7 +172,7 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="fixed bottom-0 left-0 top-[59px] z-30 hidden w-72 border-r border-line lg:block">{panel}</aside>
+      <aside className="fixed bottom-0 left-0 top-0 z-30 hidden w-72 border-r border-line lg:block">{panel}</aside>
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Your chats">
           <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-ink/40" />

@@ -353,7 +353,12 @@ export default function Home() {
         Skip to content
       </a>
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-6">
-        <button type="button" onClick={goHome} className="flex shrink-0 items-center gap-2.5 text-left" aria-label="Taste Agent, home">
+        <button
+          type="button"
+          onClick={goHome}
+          className={`flex shrink-0 items-center gap-2.5 text-left ${user ? "lg:hidden" : ""}`}
+          aria-label="Taste Agent, home"
+        >
           <LogoMark className="h-8 w-8" />
           <span className="font-display text-lg font-bold tracking-tight">Taste Agent</span>
         </button>
@@ -405,10 +410,10 @@ export default function Home() {
     </header>
   );
 
-  // Header, then the sidebar (signed in) beside the page.
+  // Signed in on wide screens: a full-height sidebar (with the logo), and the header and page share one
+  // column beside it, so their edges line up.
   const shell = (body: React.ReactNode) => (
     <div className="min-h-dvh">
-      {header}
       {user && (
         <Sidebar
           user={user}
@@ -426,7 +431,10 @@ export default function Home() {
           }}
         />
       )}
-      <div className={user ? "lg:pl-72" : ""}>{body}</div>
+      <div className={user ? "lg:pl-72" : ""}>
+        {header}
+        {body}
+      </div>
       {authMode && <AuthDialog mode={authMode} onClose={() => setAuthMode(null)} />}
       {toDelete && (
         <ConfirmDialog
@@ -468,7 +476,7 @@ export default function Home() {
   const chips = [...(FOLLOW_UPS[activePicks[0]?.type] ?? FOLLOW_UPS.default), ...tagChips(activePicks)];
 
   return shell(
-    <main id="main" className="mx-auto flex min-h-[calc(100dvh-59px)] w-full max-w-7xl flex-col px-4 pt-4 sm:px-6">
+    <main id="main" className="mx-auto flex min-h-[calc(100dvh-61px)] w-full max-w-7xl flex-col px-4 pt-4 sm:px-6">
       <button type="button" onClick={goBack} disabled={busy} className="mb-3 self-start rounded-full px-2 py-1 text-sm font-medium text-muted hover:text-forest disabled:opacity-40">
         ← Back
       </button>

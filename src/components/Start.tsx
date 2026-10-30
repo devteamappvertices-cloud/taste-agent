@@ -143,7 +143,7 @@ export function Start({
   }, []);
 
   return (
-    <main id="main" className="mx-auto flex min-h-[calc(100dvh-65px)] w-full max-w-3xl flex-col justify-center px-4 pb-16 pt-8 sm:px-6">
+    <main id="main" className="mx-auto flex min-h-[calc(100dvh-61px)] w-full max-w-3xl flex-col justify-center px-4 pb-16 pt-8 sm:px-6">
       <h1 className="rise text-center font-display text-[clamp(2rem,5.5vw,3rem)] font-bold leading-tight tracking-tight">
         Find what you&apos;ll <span className="text-forest">both</span> love.
       </h1>
