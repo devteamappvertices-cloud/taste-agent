@@ -9,6 +9,8 @@ import { Composer } from "@/components/Composer";
 import { CommonGround, ExploreBeyond, MatchDetail, PosterCard, PosterSkeleton } from "@/components/Matches";
 import { LogoMark } from "@/components/Logo";
 import { Start, type Quick } from "@/components/Start";
+import { GoogleIcon, Sidebar } from "@/components/Sidebar";
+import { deleteChat, logOut, saveChat, signIn, useUser, watchChats, type SavedChat } from "@/lib/firebase";
 
 interface Step {
   id: string;
@@ -135,6 +137,39 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<{ e: EntityCard; reason?: string } | null>(null);
   const savedScroll = useRef(0);
+  const user = useUser();
+  const [chats, setChats] = useState<SavedChat[]>([]);
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [drawer, setDrawer] = useState(false);
+  const lastSaved = useRef("");
+
+  // Signed-in users get their chats in the sidebar, live from Firestore.
+  useEffect(() => {
+    if (!user) return setChats([]);
+    return watchChats(user.uid, setChats);
+  }, [user]);
+
+  // Save each finished answer to the user's chat. Only what the page shows is kept, to stay small.
+  useEffect(() => {
+    if (busy || !user || !chatId || !turns.length) return;
+    const last = turns[turns.length - 1];
+    const signature = `${chatId}|${turns.length}|${last.text.length}`;
+    if (last.role !== "assistant" || !last.text || lastSaved.current === signature) return;
+    lastSaved.current = signature;
+    const compact = turns.map((t) =>
+      t.role === "user"
+        ? t
+        : { ...t, quick: undefined, entities: picks(t), lookups: Object.fromEntries(profile(t).map((s) => [s.id, s])) },
+    );
+    const seen = new Set<string>();
+    const seeds = turns
+      .flatMap((t) => (t.role === "assistant" ? profile(t) : []))
+      .filter((s) => !seen.has(s.id) && !!seen.add(s.id))
+      .map(({ id, name, type, image }) => ({ id, name, type, image, tags: [] }));
+    saveChat(user.uid, { id: chatId, title: turns[0].text.slice(0, 80), seeds, turns: compact }).catch((err) =>
+      console.error("Could not save chat", err),
+    );
+  }, [busy, user, chatId, turns]);
 
   // Keep the conversation through a refresh (this tab only). Storage can be blocked; the app works without it.
   useEffect(() => {
@@ -156,7 +191,26 @@ export default function Home() {
     setTurns([]);
     setSelected(null);
     setInput("");
+    setChatId(null);
+    setDrawer(false);
     window.scrollTo({ top: 0 });
+  }
+
+  function openChat(c: SavedChat) {
+    if (busy) return;
+    const restored = c.turns as Turn[];
+    lastSaved.current = `${c.id}|${restored.length}|${restored[restored.length - 1]?.text.length ?? 0}`;
+    setTurns(restored);
+    setChatId(c.id);
+    setSelected(null);
+    setDrawer(false);
+    window.scrollTo({ top: 0 });
+  }
+
+  function removeChat(c: SavedChat) {
+    if (!user || !confirm(`Delete "${c.title}"?`)) return;
+    deleteChat(user.uid, c.id).catch((err) => console.error("Could not delete chat", err));
+    if (c.id === chatId) goHome();
   }
 
   function openDetail(e: EntityCard, reason?: string) {
@@ -179,6 +233,7 @@ export default function Home() {
     setInput("");
     setBusy(true);
     setSelected(null);
+    if (!chatId) setChatId(crypto.randomUUID());
 
     const empty = { steps: [], entities: [], lookups: {}, seeds: [] };
     const history: Turn[] = [...turns, { role: "user", text: q, content: content?.trim(), ...empty }];
@@ -310,7 +365,7 @@ export default function Home() {
           <span className="font-display text-lg font-bold tracking-tight">Taste Agent</span>
         </button>
         <div className="ml-auto flex items-center gap-3">
-          <span className="hidden text-xs text-muted sm:inline">Powered by Qloo</span>
+          <span className="hidden text-xs text-muted md:inline">Powered by Qloo</span>
           {started && (
             <button
               type="button"
@@ -321,44 +376,83 @@ export default function Home() {
               New search
             </button>
           )}
+          {user === null && (
+            <button
+              type="button"
+              onClick={() => signIn().catch((err) => alert(`Sign-in failed: ${err.message ?? err}`))}
+              className="flex items-center gap-2 rounded-full bg-surface px-3.5 py-1.5 text-sm font-semibold ring-1 ring-line transition-colors hover:ring-forest"
+            >
+              <GoogleIcon /> Sign in
+            </button>
+          )}
+          {user && (
+            <button
+              type="button"
+              onClick={() => setDrawer(true)}
+              aria-label="Your chats and account"
+              className="shrink-0 rounded-full ring-1 ring-line lg:hidden"
+            >
+              {user.photoURL ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.photoURL} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded-full" />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-mint font-semibold text-forest">
+                  {(user.displayName ?? user.email ?? "?").slice(0, 1)}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </header>
   );
 
-  if (!started) {
-    return (
-      <div className="min-h-dvh">
-        {header}
-        <Start busy={busy} onAsk={send} />
-      </div>
-    );
-  }
+  // Header, then the sidebar (signed in) beside the page.
+  const shell = (body: React.ReactNode) => (
+    <div className="min-h-dvh">
+      {header}
+      {user && (
+        <Sidebar
+          user={user}
+          chats={chats}
+          activeId={chatId}
+          open={drawer}
+          busy={busy}
+          onClose={() => setDrawer(false)}
+          onNew={goHome}
+          onOpen={openChat}
+          onDelete={removeChat}
+          onSignOut={() => {
+            goHome();
+            logOut();
+          }}
+        />
+      )}
+      <div className={user ? "lg:pl-72" : ""}>{body}</div>
+    </div>
+  );
+
+  if (!started) return shell(<Start busy={busy} onAsk={send} past={chats.flatMap((c) => c.seeds ?? [])} />);
 
   if (selected) {
-    return (
-      <div className="min-h-dvh">
-        {header}
-        <main id="main">
+    return shell(
+      <main id="main">
           <MatchDetail
             e={selected.e}
             reason={selected.reason}
             seeds={activeSeeds}
             onBack={closeDetail}
             onOpen={(e) => openDetail(e)}
-            onAsk={(t) => send(t)}
-          />
-        </main>
-      </div>
+          onAsk={(t) => send(t)}
+        />
+      </main>,
     );
   }
 
   const chips = [...(FOLLOW_UPS[activePicks[0]?.type] ?? FOLLOW_UPS.default), ...tagChips(activePicks)];
 
-  return (
-    <div className="min-h-dvh">
-      {header}
-      <main id="main" className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6">
+  return shell(
+    <main id="main" className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6">
         <div aria-live="polite" className="space-y-6">
           {turns.map((t, idx) => {
             const last = idx === turns.length - 1;
@@ -500,7 +594,6 @@ export default function Home() {
           )}
           <Composer value={input} onChange={setInput} onSend={send} busy={busy} placeholder="Refine your matches…" />
         </div>
-      </main>
-    </div>
+    </main>,
   );
 }

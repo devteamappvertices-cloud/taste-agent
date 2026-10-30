@@ -107,8 +107,19 @@ const EXAMPLES = [
   "I loved Atomic Habits. Which podcasts would I like?",
 ];
 
-/** ChatGPT-style start: one box to type in, a few ready-made questions. */
-export function Start({ busy, onAsk }: { busy: boolean; onAsk: Ask }) {
+// For returning users: a next question built from a favorite in an earlier chat.
+const NEXT: Record<string, [string, string]> = {
+  movie: ["What should I watch next?", "movie"],
+  tv_show: ["Which TV shows would I like?", "tv_show"],
+  artist: ["Which artists would I like?", "artist"],
+  book: ["What should I read next?", "book"],
+  podcast: ["Which podcasts would I like?", "podcast"],
+};
+
+/** ChatGPT-style start: one box to type in, a few ready-made questions, and picks from past chats. */
+export function Start({ busy, onAsk, past = [] }: { busy: boolean; onAsk: Ask; past?: EntityCard[] }) {
+  const seen = new Set<string>();
+  const forYou = past.filter((e) => NEXT[e.type] && !seen.has(e.id) && !!seen.add(e.id)).slice(0, 3);
   const [input, setInput] = useState("");
   const [example, setExample] = useState(0);
   const [want, setWant] = useState<Category | null>(null);
@@ -219,6 +230,36 @@ export function Start({ busy, onAsk }: { busy: boolean; onAsk: Ask }) {
         )}
         <p className="mt-3 text-center text-sm text-muted">Just you? Tell me one thing you love, that works too.</p>
       </div>
+
+      {forYou.length > 0 && (
+        <section aria-labelledby="for-you" className="rise mt-7" style={{ ["--i" as string]: 4 }}>
+          <h2 id="for-you" className="text-sm font-semibold">
+            Picked up from your past searches
+          </h2>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {forYou.map((e) => {
+              const [ask, type] = NEXT[e.type];
+              return (
+                <button
+                  key={e.id}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onAsk(`I love ${e.name}. ${ask}`, `I love ${e.name} [${e.id}]. ${ask}`, [e], { type, ids: [e.id] })}
+                  className="flex items-center gap-2 rounded-full bg-surface py-1 pl-1 pr-4 text-sm ring-1 ring-line transition-colors hover:text-forest hover:ring-forest disabled:opacity-50"
+                >
+                  {e.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={e.image} alt="" className="h-7 w-7 rounded-full object-cover" />
+                  ) : (
+                    <span className="w-2" />
+                  )}
+                  More like {e.name}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <ul className="mt-6 grid gap-3 sm:grid-cols-2">
         {SUGGESTIONS.map((s, i) => (
