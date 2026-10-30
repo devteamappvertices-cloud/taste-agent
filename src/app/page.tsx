@@ -41,6 +41,9 @@ interface Turn {
 
 const SAVED = "taste-agent:turns";
 
+/** Matches shown before "Show all": one row on wide screens. */
+const FIRST = 5;
+
 const FOLLOW_UPS: Record<string, string[]> = {
   place: ["More like these", "Cheaper options", "Less touristy"],
   destination: ["More like these", "Less touristy", "Closer to home"],
@@ -143,6 +146,27 @@ export default function Home() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  // Browser back works like the Back buttons: detail -> results -> start. `pushed` counts our history entries.
+  const pushed = useRef(0);
+  const onBack = useRef(() => {});
+  useEffect(() => {
+    const pop = () => {
+      pushed.current = Math.max(0, pushed.current - 1);
+      onBack.current();
+    };
+    window.addEventListener("popstate", pop);
+    return () => window.removeEventListener("popstate", pop);
+  }, []);
+  function push() {
+    history.pushState({ tasteAgent: true }, "");
+    pushed.current++;
+  }
+  function goBack() {
+    if (pushed.current > 0) history.back();
+    else onBack.current();
+  }
   const lastSaved = useRef("");
 
   // Signed-in users get their chats in the sidebar, live from Firestore.
@@ -195,6 +219,7 @@ export default function Home() {
     setInput("");
     setChatId(null);
     setDrawer(false);
+    setExpanded(new Set());
     window.scrollTo({ top: 0 });
   }
 
@@ -202,8 +227,10 @@ export default function Home() {
     if (busy) return;
     const restored = c.turns as Turn[];
     lastSaved.current = `${c.id}|${restored.length}|${restored[restored.length - 1]?.text.length ?? 0}`;
+    if (!turns.length) push();
     setTurns(restored);
     setChatId(c.id);
+    setExpanded(new Set());
     setSelected(null);
     setDrawer(false);
     window.scrollTo({ top: 0 });
@@ -216,7 +243,10 @@ export default function Home() {
   }
 
   function openDetail(e: EntityCard, reason?: string) {
-    if (!selected) savedScroll.current = window.scrollY;
+    if (!selected) {
+      savedScroll.current = window.scrollY;
+      push();
+    }
     setSelected({ e, reason });
   }
 
@@ -236,6 +266,7 @@ export default function Home() {
     setBusy(true);
     setSelected(null);
     if (!chatId) setChatId(crypto.randomUUID());
+    if (!turns.length) push();
 
     const empty = { steps: [], entities: [], lookups: {}, seeds: [] };
     const history: Turn[] = [...turns, { role: "user", text: q, content: content?.trim(), ...empty }];
@@ -311,8 +342,8 @@ export default function Home() {
               const newSeeds = e.name === "get_recommendations" ? (i.seed_entity_ids ?? []) : [];
               return {
                 ...t,
-                // keep text from separate agent rounds in separate paragraphs
-                text: t.text && !t.text.endsWith("\n\n") ? t.text + "\n\n" : t.text,
+                // Text written before a tool call is a working note ("Need restaurant filter."), not the answer.
+                text: "",
                 steps: [...t.steps, { id: e.id, name: e.name, input: e.input, done: false }],
                 seeds: [...t.seeds, ...newSeeds.filter((s) => !t.seeds.includes(s))],
               };
@@ -351,6 +382,7 @@ export default function Home() {
   }
 
   const started = turns.length > 0;
+  onBack.current = () => (selected ? closeDetail() : started ? goHome() : undefined);
   const active = [...turns].reverse().find((t) => t.role === "assistant");
   const activePicks = active ? picks(active) : [];
   const activeSeeds = active ? profile(active) : [];
@@ -361,19 +393,19 @@ export default function Home() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:rounded-full focus:bg-surface focus:px-4 focus:py-2">
         Skip to content
       </a>
-      <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-6">
         <button type="button" onClick={goHome} className="flex shrink-0 items-center gap-2.5 text-left" aria-label="Taste Agent, home">
           <LogoMark className="h-8 w-8" />
           <span className="font-display text-lg font-bold tracking-tight">Taste Agent</span>
         </button>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <span className="hidden text-xs text-muted md:inline">Powered by Qloo</span>
           {started && (
             <button
               type="button"
               onClick={goHome}
               disabled={busy}
-              className="rounded-full border border-forest px-4 py-1.5 text-sm font-semibold text-forest transition-colors hover:bg-forest hover:text-forest-ink disabled:opacity-40"
+              className="h-9 whitespace-nowrap rounded-full border border-forest px-3 text-sm font-semibold text-forest sm:px-4 transition-colors hover:bg-forest hover:text-forest-ink disabled:opacity-40"
             >
               New search
             </button>
@@ -383,18 +415,18 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setAuthMode("signin")}
-                className="rounded-full px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-surface"
+                className="h-9 whitespace-nowrap rounded-full border border-line bg-surface px-3 text-sm font-semibold transition-colors hover:border-forest hover:text-forest sm:px-4"
               >
                 Log in
               </button>
               <button
                 type="button"
                 onClick={() => setAuthMode("signup")}
-                className={`rounded-full bg-forest px-4 py-1.5 text-sm font-semibold text-forest-ink transition-transform duration-300 ease-[var(--ease-out)] hover:scale-105 ${
+                className={`h-9 whitespace-nowrap rounded-full bg-forest px-3 text-sm font-semibold sm:px-4 text-forest-ink shadow-[0_6px_16px_-8px_var(--forest)] transition-transform duration-300 ease-[var(--ease-out)] hover:scale-105 ${
                   started ? "hidden sm:block" : ""
                 }`}
               >
-                Sign up
+                Sign up<span className="hidden sm:inline"> free</span>
               </button>
             </>
           )}
@@ -446,7 +478,15 @@ export default function Home() {
     </div>
   );
 
-  if (!started) return shell(<Start busy={busy} onAsk={send} past={chats.flatMap((c) => c.seeds ?? [])} />);
+  if (!started)
+    return shell(
+      <Start
+        busy={busy}
+        onAsk={send}
+        past={chats.flatMap((c) => c.seeds ?? [])}
+        onAuth={user === null ? setAuthMode : undefined}
+      />,
+    );
 
   if (selected) {
     return shell(
@@ -455,7 +495,7 @@ export default function Home() {
             e={selected.e}
             reason={selected.reason}
             seeds={activeSeeds}
-            onBack={closeDetail}
+            onBack={goBack}
             onOpen={(e) => openDetail(e)}
           onAsk={(t) => send(t)}
         />
@@ -466,7 +506,10 @@ export default function Home() {
   const chips = [...(FOLLOW_UPS[activePicks[0]?.type] ?? FOLLOW_UPS.default), ...tagChips(activePicks)];
 
   return shell(
-    <main id="main" className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6">
+    <main id="main" className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6">
+      <button type="button" onClick={goBack} disabled={busy} className="mb-3 rounded-full px-2 py-1 text-sm font-medium text-muted hover:text-forest disabled:opacity-40">
+        ← Back
+      </button>
         <div aria-live="polite" className="space-y-6">
           {turns.map((t, idx) => {
             const last = idx === turns.length - 1;
@@ -479,7 +522,8 @@ export default function Home() {
             }
             const running = busy && last;
             const current = [...t.steps].reverse().find((s) => !s.done);
-            const list = picks(t);
+            // While the agent works, show instant Qloo matches; its picks and words appear when it's done.
+            const list = running ? [] : picks(t);
             const seeds = profile(t);
             const shown = list.length ? list : outsideFranchise(t.quick ?? [], seeds);
             const { summary, bullets } = splitAnswer(t.text);
@@ -501,7 +545,7 @@ export default function Home() {
                         )}
                       </div>
                     )}
-                    {(list.length ? summary : t.text) && (
+                    {!running && (list.length ? summary : t.text) && (
                       <div className="answer rounded-3xl rounded-tl-lg bg-surface px-5 py-3.5 leading-relaxed ring-1 ring-line">
                         <ReactMarkdown>{list.length ? summary : t.text}</ReactMarkdown>
                       </div>
@@ -548,7 +592,7 @@ export default function Home() {
                     </div>
                     <ul className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
                       {shown.length > 0
-                        ? shown.map((e, i) => (
+                        ? (expanded.has(idx) ? shown : shown.slice(0, FIRST)).map((e, i) => (
                             <li key={e.id}>
                               <PosterCard
                                 e={e}
@@ -565,6 +609,23 @@ export default function Home() {
                             </li>
                           ))}
                     </ul>
+                    {shown.length > FIRST && (
+                      <div className="mt-6 flex justify-center">
+                        <button
+                          type="button"
+                          aria-expanded={expanded.has(idx)}
+                          onClick={() => {
+                            const next = new Set(expanded);
+                            if (next.has(idx)) next.delete(idx);
+                            else next.add(idx);
+                            setExpanded(next);
+                          }}
+                          className="rounded-full bg-surface px-5 py-2 text-sm font-semibold ring-1 ring-line transition-colors hover:text-forest hover:ring-forest"
+                        >
+                          {expanded.has(idx) ? "Show less" : `Show all ${shown.length} matches`}
+                        </button>
+                      </div>
+                    )}
                     {!running && t.steps.length > 0 && (
                       <details className="mt-5 text-sm text-muted">
                         <summary className="cursor-pointer select-none hover:text-ink">How these were found ({t.steps.length} Qloo {t.steps.length === 1 ? "call" : "calls"})</summary>

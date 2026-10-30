@@ -12,6 +12,8 @@ interface Props {
   placeholder: string;
   /** Accessible name when the placeholder changes or is only an example. */
   label?: string;
+  /** Three lines tall on phones while empty, so a long example fits. */
+  roomy?: boolean;
 }
 
 export function MicIcon() {
@@ -50,7 +52,7 @@ function SendButton({ disabled, onClick, label, busy }: { disabled: boolean; onC
   );
 }
 
-export function Composer({ id, value, onChange, onSend, busy, placeholder, label }: Props) {
+export function Composer({ id, value, onChange, onSend, busy, placeholder, label, roomy }: Props) {
   const area = useRef<HTMLTextAreaElement>(null);
   const speech = useSpeech(onChange);
 
@@ -90,7 +92,9 @@ export function Composer({ id, value, onChange, onSend, busy, placeholder, label
           }}
           placeholder={speech.listening ? "Listening… speak now" : placeholder}
           aria-label={label ?? placeholder}
-          className="max-h-40 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 outline-none placeholder:text-muted focus-visible:outline-none"
+          className={`max-h-40 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 outline-none placeholder:text-muted focus-visible:outline-none ${
+            roomy && !value ? "min-h-[4.5rem] sm:min-h-0" : ""
+          }`}
         />
         {speech.supported && (
           <button

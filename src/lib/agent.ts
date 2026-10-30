@@ -34,7 +34,7 @@ How to work:
 - If a call returns nothing, loosen one constraint and try again rather than guessing.
 - Be efficient: batch independent lookups in parallel, and aim to answer within 3-4 rounds of tool calls.
 - Keep the final answer short; it sits beside a list of match cards. Bold only the names of your picks, never other titles. Write one sentence on how you read their taste (for several people: what their tastes have in common), then 4-8 picks as a bullet list: the entity's exact Qloo name in bold, then why it fits in under 15 words (for several people: why it works for each of them). End with one short line suggesting where to start. No headings, no addresses, no long descriptions: the cards already show those.
-- Don't narrate your tool calls; the UI shows progress.`;
+- Don't narrate your tool calls or write notes to yourself; the UI shows progress. Write text only once, as the final answer after your last tool call.`;
 
 const SearchEntitiesInput = z.object({
   query: z.string().min(1),

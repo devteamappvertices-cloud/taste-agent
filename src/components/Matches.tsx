@@ -261,6 +261,22 @@ function externalAction(e: EntityCard) {
   }
 }
 
+/** Long descriptions start folded to four lines. */
+function Description({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 280;
+  return (
+    <div className="mt-5 max-w-prose">
+      <p className={`text-[17px] leading-relaxed ${long && !open ? "line-clamp-4" : ""}`}>{text}</p>
+      {long && (
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="mt-1 text-sm font-semibold text-forest hover:underline">
+          {open ? "Read less" : "Read more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function Check() {
   return (
     <span aria-hidden="true" className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-mint text-xs font-bold text-forest">
@@ -337,7 +353,7 @@ export function MatchDetail({
             </ul>
           )}
           {p !== undefined && <MatchPill p={p} className="mt-5 inline-block px-3.5 py-1.5 text-sm" />}
-          {e.description && <p className="mt-5 max-w-prose text-[17px] leading-relaxed">{e.description}</p>}
+          {e.description && <Description key={e.id} text={e.description} />}
           <div className="mt-7 flex flex-wrap gap-3">
             <a
               href={action.href}

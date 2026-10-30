@@ -101,9 +101,9 @@ async function quickFromText(text: string, picked?: Category | null): Promise<Qu
 }
 
 const EXAMPLES = [
-  "I love Oppenheimer, my partner loves Barbie. What should we watch?",
-  "I love Drake and my friend loves Morgan Wallen. Road trip music?",
-  "We both love The Office. Where should we eat in Toronto?",
+  "I love Oppenheimer, my partner loves Barbie. What to watch?",
+  "I love Drake, my friend loves Morgan Wallen. Road trip music?",
+  "We love The Office. Where should we eat in Toronto?",
   "I loved Atomic Habits. Which podcasts would I like?",
 ];
 
@@ -117,7 +117,18 @@ const NEXT: Record<string, [string, string]> = {
 };
 
 /** ChatGPT-style start: one box to type in, a few ready-made questions, and picks from past chats. */
-export function Start({ busy, onAsk, past = [] }: { busy: boolean; onAsk: Ask; past?: EntityCard[] }) {
+export function Start({
+  busy,
+  onAsk,
+  past = [],
+  onAuth,
+}: {
+  busy: boolean;
+  onAsk: Ask;
+  past?: EntityCard[];
+  /** Set when signed out: opens log in or sign up. */
+  onAuth?: (mode: "signin" | "signup") => void;
+}) {
   const seen = new Set<string>();
   const forYou = past.filter((e) => NEXT[e.type] && !seen.has(e.id) && !!seen.add(e.id)).slice(0, 3);
   const [input, setInput] = useState("");
@@ -165,6 +176,7 @@ export function Start({ busy, onAsk, past = [] }: { busy: boolean; onAsk: Ask; p
       <div className="rise mt-8" style={{ ["--i" as string]: 2 }}>
         <Composer
           id="ask"
+          roomy
           value={input}
           onChange={setInput}
           busy={busy}
@@ -288,6 +300,31 @@ export function Start({ busy, onAsk, past = [] }: { busy: boolean; onAsk: Ask; p
           </li>
         ))}
       </ul>
+
+      {onAuth && (
+        <aside className="rise mt-6 flex flex-col items-center justify-between gap-3 rounded-2xl bg-mint/60 px-5 py-4 text-center ring-1 ring-forest/15 sm:flex-row sm:text-left" style={{ ["--i" as string]: 9 }}>
+          <p className="text-sm">
+            <strong className="font-semibold text-forest">Free account, optional.</strong>{" "}
+            <span className="text-muted">Save your chats and get picks based on what you searched before.</span>
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => onAuth("signin")}
+              className="h-9 rounded-full border border-line bg-surface px-4 text-sm font-semibold transition-colors hover:border-forest hover:text-forest"
+            >
+              Log in
+            </button>
+            <button
+              type="button"
+              onClick={() => onAuth("signup")}
+              className="h-9 rounded-full bg-forest px-4 text-sm font-semibold text-forest-ink"
+            >
+              Sign up free
+            </button>
+          </div>
+        </aside>
+      )}
     </main>
   );
 }
