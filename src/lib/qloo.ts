@@ -178,32 +178,76 @@ export async function getRecommendations(q: InsightsQuery) {
 
 const photos = new Map<string, Promise<string | undefined>>();
 // Lead images that are flags, seals or maps make poor travel photos.
-const NOT_A_PHOTO = /\.svg$|flag|seal|coat_of_arms|locator|map/i;
+const NOT_A_PHOTO = /\.svg$|\.gif$|flag|seal|coat_of_arms|locator|map/i;
+
+interface WikiPage {
+  title: string;
+  missing?: string;
+  pageimage?: string;
+  thumbnail?: { source?: string };
+  pageprops?: { disambiguation?: string };
+}
+
+async function wiki(params: Record<string, string>) {
+  const qs = new URLSearchParams({
+    action: "query",
+    format: "json",
+    formatversion: "2",
+    redirects: "1",
+    prop: "pageimages|pageprops",
+    piprop: "thumbnail|name",
+    pithumbsize: "640",
+    ppprop: "disambiguation",
+    ...params,
+  });
+  const res = await fetch(`https://en.wikipedia.org/w/api.php?${qs}`, {
+    headers: { "User-Agent": "TasteAgent/1.0 (https://taste-agent-omega.vercel.app)" },
+    signal: AbortSignal.timeout(5000),
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body: any = res.ok ? await res.json() : null;
+  return {
+    pages: (body?.query?.pages ?? []) as WikiPage[],
+    // How each requested title was normalized or redirected, to match pages back to requests.
+    renamed: new Map<string, string>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      [...(body?.query?.normalized ?? []), ...(body?.query?.redirects ?? [])].map((r: any) => [r.from, r.to]),
+    ),
+  };
+}
+
+const usable = (p?: WikiPage) =>
+  p && !p.missing && !p.pageprops?.disambiguation && !/^List of/i.test(p.title) && p.pageimage && !NOT_A_PHOTO.test(p.pageimage)
+    ? p.thumbnail?.source
+    : undefined;
+
+/**
+ * Lead photo of a destination's Wikipedia article. Exact titles first ("Pasadena, California", then
+ * "Mexico City"); search only as a fallback, since search can rank lists or maps above the city itself.
+ */
+async function findPhoto(name: string, region?: string) {
+  const near = region && region !== name ? region : undefined;
+  const titles = [near && `${name}, ${near}`, name].filter(Boolean) as string[];
+  const exact = await wiki({ titles: titles.join("|") });
+  for (const t of titles) {
+    let title = t;
+    for (let hops = 0; exact.renamed.has(title) && hops < 3; hops++) title = exact.renamed.get(title)!;
+    const url = usable(exact.pages.find((p) => p.title === title));
+    if (url) return url;
+  }
+  const found = await wiki({ generator: "search", gsrsearch: near ? `${name} ${near}` : name, gsrlimit: "3" });
+  for (const p of found.pages.sort((a, b) => ((a as { index?: number }).index ?? 0) - ((b as { index?: number }).index ?? 0))) {
+    const url = usable(p);
+    if (url) return url;
+  }
+}
 
 function destinationPhoto(name: string, region?: string) {
   const key = `${name}|${region ?? ""}`;
   if (!photos.has(key)) {
-    const qs = new URLSearchParams({
-      action: "query",
-      format: "json",
-      generator: "search",
-      gsrsearch: `${name} ${region ?? ""}`.trim(),
-      gsrlimit: "1",
-      prop: "pageimages",
-      piprop: "thumbnail|name",
-      pithumbsize: "640",
-    });
     photos.set(
       key,
-      fetch(`https://en.wikipedia.org/w/api.php?${qs}`, {
-        headers: { "User-Agent": "TasteAgent/1.0 (https://taste-agent-omega.vercel.app)" },
-        signal: AbortSignal.timeout(5000),
-      })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((body) => {
-          const page = Object.values(body?.query?.pages ?? {})[0] as { pageimage?: string; thumbnail?: { source?: string } } | undefined;
-          return page?.pageimage && !NOT_A_PHOTO.test(page.pageimage) ? page.thumbnail?.source : undefined;
-        })
+      findPhoto(name, region)
         .catch(() => undefined)
         .then((url) => {
           // Remember only found photos; a slow or failed lookup is tried again next time.
