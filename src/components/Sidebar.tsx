@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { User } from "firebase/auth";
 import type { SavedChat } from "@/lib/firebase";
+import type { EntityCard } from "@/lib/qloo";
+import { TYPE_LABEL } from "@/lib/categories";
 import { LogoMark } from "@/components/Logo";
 
 /** Profile photo, or the first letter of the name when there is none or it fails to load. */
@@ -96,6 +98,9 @@ export function Sidebar({
   onOpen,
   onDelete,
   onSignOut,
+  favorites,
+  onOpenFavorite,
+  onRemoveFavorite,
 }: {
   user: User;
   chats: SavedChat[];
@@ -107,7 +112,11 @@ export function Sidebar({
   onOpen: (c: SavedChat) => void;
   onDelete: (c: SavedChat) => void;
   onSignOut: () => void;
+  favorites: EntityCard[];
+  onOpenFavorite: (e: EntityCard) => void;
+  onRemoveFavorite: (e: EntityCard) => void;
 }) {
+  const [tab, setTab] = useState<"chats" | "saved">("chats");
   const panel = (
     <nav aria-label="Your chats" className="flex h-full flex-col bg-surface">
       {/* Same height as the page header (60px + its border), so the two line up. */}
@@ -131,7 +140,65 @@ export function Sidebar({
           <span aria-hidden="true">＋</span> New chat
         </button>
       </div>
-      <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-muted">Your chats</p>
+      <div role="tablist" aria-label="Your library" className="mx-3 mb-2 grid grid-cols-2 rounded-full bg-paper p-1 text-sm font-semibold">
+        {(
+          [
+            ["chats", "Chats", chats.length],
+            ["saved", "Saved", favorites.length],
+          ] as const
+        ).map(([key, label, n]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`rounded-full py-1.5 transition-colors ${tab === key ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}
+          >
+            {label}
+            {n > 0 && <span className="ml-1 text-xs font-medium text-muted">{n}</span>}
+          </button>
+        ))}
+      </div>
+      {tab === "saved" ? (
+        <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3">
+          {favorites.length === 0 && (
+            <li className="px-2 py-3 text-sm text-muted">Tap the heart on any match to save it here.</li>
+          )}
+          {favorites.map((f) => (
+            <li key={f.id} className="group relative">
+              <button
+                type="button"
+                onClick={() => onOpenFavorite(f)}
+                className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 pr-9 text-left hover:bg-paper"
+              >
+                {f.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={f.image} alt="" className="h-11 w-9 shrink-0 rounded-lg bg-line object-cover" />
+                ) : (
+                  <span className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg bg-mint text-sm font-semibold text-forest">
+                    {f.name.slice(0, 1)}
+                  </span>
+                )}
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{f.name}</span>
+                  <span className="block text-xs text-muted">{[TYPE_LABEL[f.type] ?? f.type, f.year ?? f.city].filter(Boolean).join(" · ")}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemoveFavorite(f)}
+                aria-label={`Remove ${f.name} from favorites`}
+                className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-red-600 opacity-0 transition-opacity hover:bg-red-50 focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-100"
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+                  <path d="M12 20.5s-7.5-4.6-9.2-9.3C1.7 8 3.7 4.5 7.2 4.5c2 0 3.6 1.1 4.8 2.8 1.2-1.7 2.8-2.8 4.8-2.8 3.5 0 5.5 3.5 4.4 6.7C19.5 15.9 12 20.5 12 20.5z" />
+                </svg>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
       <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3">
         {chats.length === 0 && <li className="px-2 py-3 text-sm text-muted">Your searches will show up here.</li>}
         {chats.map((c) => (
@@ -160,6 +227,7 @@ export function Sidebar({
           </li>
         ))}
       </ul>
+      )}
       <div className="flex items-center gap-2.5 border-t border-line p-3">
         <Avatar user={user} />
         <span className="min-w-0 flex-1 truncate text-sm">{user.displayName ?? user.email}</span>

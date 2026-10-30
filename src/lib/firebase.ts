@@ -127,3 +127,21 @@ export function saveChat(uid: string, chat: Omit<SavedChat, "updatedAt">) {
 }
 
 export const deleteChat = (uid: string, id: string) => deleteDoc(doc(chats(uid), id));
+
+// Favorites: one document per saved title, keyed by its Qloo id.
+const favorites = (uid: string) => collection(db, "users", uid, "favorites");
+
+/** Saved titles, newest first, live. Returns the unsubscribe function. */
+export function watchFavorites(uid: string, onChange: (list: EntityCard[]) => void) {
+  return onSnapshot(query(favorites(uid), orderBy("savedAt", "desc"), limit(100)), (snap) =>
+    onChange(snap.docs.map((d) => d.data() as EntityCard)),
+  );
+}
+
+export function saveFavorite(uid: string, e: EntityCard) {
+  const { id, name, type, image, year, city, address, description, placeId, lat, lon, tags } = e;
+  const card = JSON.parse(JSON.stringify({ id, name, type, image, year, city, address, description, placeId, lat, lon, tags }));
+  return setDoc(doc(favorites(uid), id), { ...card, savedAt: serverTimestamp() });
+}
+
+export const removeFavorite = (uid: string, id: string) => deleteDoc(doc(favorites(uid), id));

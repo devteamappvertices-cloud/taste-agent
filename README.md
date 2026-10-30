@@ -55,7 +55,8 @@ and a Taylor Swift fan can get a dinner spot in New York that suits them both.
   the agent skips your favorites' own franchise and anything you exclude
 - Show all / show less for results, Back buttons, and the browser's Back button steps detail, results, start
 - Optional account (Google, or email and password with password reset): chats save to Firestore and appear in a
-  sidebar, and the start screen suggests "More like ..." from your past searches
+  sidebar, a heart on any match saves it to your favorites (signed-out users are asked to log in first), and the
+  start screen suggests "More like ..." from your past searches
 - Works on phones and desktops; keyboard and screen-reader friendly
 
 ## Try it in 30 seconds

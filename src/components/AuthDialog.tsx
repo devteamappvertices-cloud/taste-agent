@@ -7,7 +7,7 @@ import { GoogleIcon } from "@/components/Sidebar";
 export type AuthMode = "signin" | "signup";
 
 /** Sign in or create an account: Google, or email and password. Native <dialog> handles focus and Escape. */
-export function AuthDialog({ mode: initial, onClose }: { mode: AuthMode; onClose: () => void }) {
+export function AuthDialog({ mode: initial, reason, onClose }: { mode: AuthMode; reason?: string; onClose: () => void }) {
   const box = useRef<HTMLDialogElement>(null);
   const [mode, setMode] = useState(initial);
   const [name, setName] = useState("");
@@ -62,7 +62,7 @@ export function AuthDialog({ mode: initial, onClose }: { mode: AuthMode; onClose
               {signup ? "Create your account" : "Welcome back"}
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {signup ? "Save your chats and get picks based on past searches." : "Sign in to see your saved chats."}
+              {reason ?? (signup ? "Save your chats and favorites, and get picks based on past searches." : "Sign in to see your saved chats and favorites.")}
             </p>
           </div>
           <button

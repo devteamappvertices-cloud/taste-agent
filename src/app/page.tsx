@@ -13,7 +13,17 @@ import { Start, type Quick } from "@/components/Start";
 import { AccountMenu, Sidebar } from "@/components/Sidebar";
 import { AuthDialog, type AuthMode } from "@/components/AuthDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { deleteChat, logOut, saveChat, useUser, watchChats, type SavedChat } from "@/lib/firebase";
+import {
+  deleteChat,
+  logOut,
+  removeFavorite,
+  saveChat,
+  saveFavorite,
+  useUser,
+  watchChats,
+  watchFavorites,
+  type SavedChat,
+} from "@/lib/firebase";
 
 interface Step {
   id: string;
@@ -101,6 +111,8 @@ export default function Home() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+  const [authReason, setAuthReason] = useState<string>();
+  const [favorites, setFavorites] = useState<EntityCard[]>([]);
   const [toDelete, setToDelete] = useState<SavedChat | null>(null);
 
   // Browser back works like the Back buttons: detail -> results -> start. `pushed` counts our history entries.
@@ -128,6 +140,10 @@ export default function Home() {
   useEffect(() => {
     if (!user) return setChats([]);
     return watchChats(user.uid, setChats);
+  }, [user]);
+  useEffect(() => {
+    if (!user) return setFavorites([]);
+    return watchFavorites(user.uid, setFavorites);
   }, [user]);
 
   // Save each finished answer to the user's chat. Only what the page shows is kept, to stay small.
@@ -187,6 +203,20 @@ export default function Home() {
     setSelected(null);
     setDrawer(false);
     window.scrollTo({ top: 0 });
+  }
+
+  const savedIds = new Set(favorites.map((f) => f.id));
+
+  /** Favorites need an account: signed out, the heart opens log in and explains why. */
+  function toggleSave(e: EntityCard) {
+    if (!user) {
+      setAuthReason(`Log in or create a free account to save ${e.name} to your favorites.`);
+      setAuthMode("signin");
+      return;
+    }
+    (savedIds.has(e.id) ? removeFavorite(user.uid, e.id) : saveFavorite(user.uid, e)).catch((err) =>
+      console.error("Could not update favorites", err),
+    );
   }
 
   function removeChat(c: SavedChat) {
@@ -419,6 +449,12 @@ export default function Home() {
           onNew={goHome}
           onOpen={openChat}
           onDelete={setToDelete}
+          favorites={favorites}
+          onOpenFavorite={(e) => {
+            setDrawer(false);
+            openDetail(e);
+          }}
+          onRemoveFavorite={(e) => removeFavorite(user.uid, e.id).catch((err) => console.error(err))}
           onSignOut={() => {
             goHome();
             logOut();
@@ -429,7 +465,16 @@ export default function Home() {
         {header}
         {body}
       </div>
-      {authMode && <AuthDialog mode={authMode} onClose={() => setAuthMode(null)} />}
+      {authMode && (
+        <AuthDialog
+          mode={authMode}
+          reason={authReason}
+          onClose={() => {
+            setAuthMode(null);
+            setAuthReason(undefined);
+          }}
+        />
+      )}
       {toDelete && (
         <ConfirmDialog
           title="Delete this chat?"
@@ -454,6 +499,23 @@ export default function Home() {
       </div>
     );
 
+  if (selected) {
+    return shell(
+      <main id="main">
+        <MatchDetail
+          e={selected.e}
+          reason={selected.reason}
+          seeds={activeSeeds}
+          onBack={goBack}
+          onOpen={(e) => openDetail(e)}
+          onAsk={(t) => send(t)}
+          saved={savedIds.has(selected.e.id)}
+          onSave={() => toggleSave(selected.e)}
+        />
+      </main>,
+    );
+  }
+
   if (!started)
     return shell(
       <Start
@@ -463,21 +525,6 @@ export default function Home() {
         onAuth={user === null ? setAuthMode : undefined}
       />,
     );
-
-  if (selected) {
-    return shell(
-      <main id="main">
-          <MatchDetail
-            e={selected.e}
-            reason={selected.reason}
-            seeds={activeSeeds}
-            onBack={goBack}
-            onOpen={(e) => openDetail(e)}
-          onAsk={(t) => send(t)}
-        />
-      </main>,
-    );
-  }
 
   const chips = [...(FOLLOW_UPS[activePicks[0]?.type] ?? FOLLOW_UPS.default), ...tagChips(activePicks)];
 
@@ -578,6 +625,8 @@ export default function Home() {
                               seeds={seeds}
                               reason={reasonFor(bullets, e.name)}
                               onOpen={() => openDetail(e, reasonFor(bullets, e.name))}
+                              saved={savedIds.has(e.id)}
+                              onSave={() => toggleSave(e)}
                             />
                           ))
                         : Array.from({ length: 5 }, (_, i) => <PosterSkeleton key={i} i={i} />)}

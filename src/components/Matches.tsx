@@ -110,21 +110,67 @@ function MatchPill({ p, className = "" }: { p: number; className?: string }) {
 }
 
 /** Ranked match: poster, Qloo affinity, year, tags and the agent's one-line reason. */
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+      <path d="M12 20.5s-7.5-4.6-9.2-9.3C1.7 8 3.7 4.5 7.2 4.5c2 0 3.6 1.1 4.8 2.8 1.2-1.7 2.8-2.8 4.8-2.8 3.5 0 5.5 3.5 4.4 6.7C19.5 15.9 12 20.5 12 20.5z" />
+    </svg>
+  );
+}
+
+/** Save to favorites. `overlay` sits on a poster; otherwise it's a labelled pill. */
+export function SaveButton({ saved, onToggle, name, overlay }: { saved: boolean; onToggle: () => void; name: string; overlay?: boolean }) {
+  const label = saved ? `Remove ${name} from favorites` : `Save ${name} to favorites`;
+  return overlay ? (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={saved}
+      aria-label={label}
+      title={saved ? "Saved" : "Save to favorites"}
+      className={`absolute right-2.5 top-2.5 z-10 flex h-9 w-9 items-center justify-center rounded-full shadow-md backdrop-blur transition-transform duration-300 ease-[var(--ease-out)] hover:scale-110 active:scale-95 ${
+        saved ? "bg-surface text-red-600" : "bg-surface/85 text-ink"
+      }`}
+    >
+      <HeartIcon filled={saved} />
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={saved}
+      aria-label={label}
+      className={`flex items-center gap-2 rounded-full border px-6 py-3 font-semibold transition-colors ${
+        saved ? "border-red-200 bg-red-50 text-red-700" : "border-line bg-surface hover:border-forest hover:text-forest"
+      }`}
+    >
+      <HeartIcon filled={saved} />
+      {saved ? "Saved" : "Save"}
+    </button>
+  );
+}
+
 export function PosterCard({
   e,
   reason,
   seeds = [],
   onOpen,
   i = 0,
+  saved,
+  onSave,
 }: {
   e: EntityCard;
   reason?: string;
   seeds?: EntityCard[];
   onOpen: () => void;
   i?: number;
+  saved?: boolean;
+  onSave?: () => void;
 }) {
   const p = pct(e);
   return (
+    <div className="relative">
+      {onSave && <SaveButton overlay saved={!!saved} onToggle={onSave} name={e.name} />}
     <button type="button" onClick={onOpen} className="rise group block w-full text-left" style={{ ["--i" as string]: i }}>
       <span className="relative block overflow-hidden rounded-2xl bg-line shadow-[0_14px_30px_-20px_rgba(13,20,36,0.6)]">
         <Thumb e={e} className="aspect-[3/4] w-full text-lg transition-transform duration-700 ease-[var(--ease-out)] group-hover:scale-105" />
@@ -144,6 +190,7 @@ export function PosterCard({
       <BalanceBar e={e} seeds={seeds} />
       {reason && <span className="mt-2 line-clamp-2 block text-sm leading-snug text-muted">{reason}</span>}
     </button>
+    </div>
   );
 }
 
@@ -388,6 +435,8 @@ export function MatchDetail({
   onBack,
   onOpen,
   onAsk,
+  saved,
+  onSave,
 }: {
   e: EntityCard;
   reason?: string;
@@ -395,6 +444,8 @@ export function MatchDetail({
   onBack: () => void;
   onOpen: (e: EntityCard) => void;
   onAsk: (text: string) => void;
+  saved: boolean;
+  onSave: () => void;
 }) {
   const back = useRef<HTMLButtonElement>(null);
   const p = pct(e);
@@ -465,6 +516,7 @@ export function MatchDetail({
             >
               More like this
             </button>
+            <SaveButton saved={saved} onToggle={onSave} name={e.name} />
           </div>
         </div>
 
