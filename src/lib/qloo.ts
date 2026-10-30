@@ -197,14 +197,19 @@ function destinationPhoto(name: string, region?: string) {
       key,
       fetch(`https://en.wikipedia.org/w/api.php?${qs}`, {
         headers: { "User-Agent": "TasteAgent/1.0 (https://taste-agent-omega.vercel.app)" },
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(5000),
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((body) => {
           const page = Object.values(body?.query?.pages ?? {})[0] as { pageimage?: string; thumbnail?: { source?: string } } | undefined;
           return page?.pageimage && !NOT_A_PHOTO.test(page.pageimage) ? page.thumbnail?.source : undefined;
         })
-        .catch(() => undefined),
+        .catch(() => undefined)
+        .then((url) => {
+          // Remember only found photos; a slow or failed lookup is tried again next time.
+          if (!url) photos.delete(key);
+          return url;
+        }),
     );
   }
   return photos.get(key)!;

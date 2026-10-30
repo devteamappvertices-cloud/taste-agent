@@ -290,7 +290,7 @@ function MiniCard({ e, onOpen, round, i }: { e: EntityCard; onOpen: () => void; 
 }
 
 /** Direct Qloo Insights call (no LLM), for cross-category and "more like this" rows. */
-function useInsights(type: string | undefined, ids: string[]) {
+export function useInsights(type: string | undefined, ids: string[]) {
   const key = type && ids.length ? `${type}|${ids.join(",")}` : "";
   const [state, setState] = useState<{ key: string; items: EntityCard[]; failed: boolean }>({ key: "", items: [], failed: false });
   const [attempt, setAttempt] = useState(0);

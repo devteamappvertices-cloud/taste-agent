@@ -5,6 +5,7 @@ import type { EntityCard } from "@/lib/qloo";
 import { CATEGORIES, qlooImage, type Category } from "@/lib/categories";
 import { readMessage } from "@/lib/message";
 import { Composer } from "@/components/Composer";
+import { ForYou } from "@/components/ForYou";
 
 /** Direct Qloo query the page runs while the agent works, so matches show in about a second. */
 export interface Quick {
@@ -86,30 +87,26 @@ const EXAMPLES = [
   "I loved Atomic Habits. Which podcasts would I like?",
 ];
 
-// For returning users: a next question built from a favorite in an earlier chat.
-const NEXT: Record<string, [string, string]> = {
-  movie: ["What should I watch next?", "movie"],
-  tv_show: ["Which TV shows would I like?", "tv_show"],
-  artist: ["Which artists would I like?", "artist"],
-  book: ["What should I read next?", "book"],
-  podcast: ["Which podcasts would I like?", "podcast"],
-};
-
 /** ChatGPT-style start: one box to type in, a few ready-made questions, and picks from past chats. */
 export function Start({
   busy,
   onAsk,
   past = [],
   onAuth,
+  onOpen,
+  savedIds,
+  onSave,
 }: {
   busy: boolean;
   onAsk: Ask;
+  /** Favorites and past-chat favorites, newest first, for the "For you" section. */
   past?: EntityCard[];
+  onOpen?: (e: EntityCard) => void;
+  savedIds?: Set<string>;
+  onSave?: (e: EntityCard) => void;
   /** Set when signed out: opens log in or sign up. */
   onAuth?: (mode: "signin" | "signup") => void;
 }) {
-  const seen = new Set<string>();
-  const forYou = past.filter((e) => NEXT[e.type] && !seen.has(e.id) && !!seen.add(e.id)).slice(0, 3);
   const [input, setInput] = useState("");
   const [example, setExample] = useState(0);
   const [want, setWant] = useState<Category | null>(null);
@@ -222,34 +219,8 @@ export function Start({
         <p className="mt-3 text-center text-sm text-muted">Just you? Tell me one thing you love, that works too.</p>
       </div>
 
-      {forYou.length > 0 && (
-        <section aria-labelledby="for-you" className="rise mt-7" style={{ ["--i" as string]: 4 }}>
-          <h2 id="for-you" className="text-sm font-semibold">
-            Picked up from your past searches
-          </h2>
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            {forYou.map((e) => {
-              const [ask, type] = NEXT[e.type];
-              return (
-                <button
-                  key={e.id}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onAsk(`I love ${e.name}. ${ask}`, `I love ${e.name} [${e.id}]. ${ask}`, [e], { type, ids: [e.id] })}
-                  className="flex items-center gap-2 rounded-full bg-surface py-1 pl-1 pr-4 text-sm ring-1 ring-line transition-colors hover:text-forest hover:ring-forest disabled:opacity-50"
-                >
-                  {e.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={e.image} alt="" className="h-7 w-7 rounded-full object-cover" />
-                  ) : (
-                    <span className="w-2" />
-                  )}
-                  More like {e.name}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+      {past.length > 0 && onOpen && savedIds && onSave && (
+        <ForYou past={past} busy={busy} onAsk={onAsk} onOpen={onOpen} savedIds={savedIds} onSave={onSave} />
       )}
 
       <ul className="no-scrollbar -mx-4 mt-6 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0">

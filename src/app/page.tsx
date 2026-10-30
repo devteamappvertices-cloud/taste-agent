@@ -521,8 +521,11 @@ export default function Home() {
       <Start
         busy={busy}
         onAsk={send}
-        past={chats.flatMap((c) => c.seeds ?? [])}
+        past={[...favorites, ...chats.flatMap((c) => c.seeds ?? [])]}
         onAuth={user === null ? setAuthMode : undefined}
+        onOpen={(e) => openDetail(e)}
+        savedIds={savedIds}
+        onSave={toggleSave}
       />,
     );
 
