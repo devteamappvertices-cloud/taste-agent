@@ -11,6 +11,8 @@ export interface Quick {
   ids: string[];
   location?: string;
   tag?: string;
+  /** Favorites resolved from the message, shown as the taste profile right away. */
+  seeds?: EntityCard[];
 }
 
 type Ask = (text: string, content?: string, known?: EntityCard[], quick?: Quick | Promise<Quick | undefined>) => void;
@@ -86,21 +88,36 @@ async function quickFromText(text: string): Promise<Quick | undefined> {
   if (want.place && !location) return;
 
   const names = [...new Set(found.flatMap((f) => f.split(/\s+and\s+|\s*&\s*|,\s*/)).map(cleanQuery).filter(Boolean))].slice(0, 4);
-  const ids = await Promise.all(
+  const hits = await Promise.all(
     names.map((n) =>
       fetch(`/api/search?q=${encodeURIComponent(n)}`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((b) => b?.results?.[0]?.id as string | undefined)
+        .then((b) => b?.results?.[0] as EntityCard | undefined)
         .catch(() => undefined),
     ),
   );
-  const seeds = ids.filter((i): i is string => !!i);
-  return seeds.length ? { type: want.type, ids: seeds, location, tag: want.tag } : undefined;
+  const seeds = hits.filter((h): h is EntityCard => !!h).map((h) => ({ ...h, tags: [] }));
+  return seeds.length ? { type: want.type, ids: seeds.map((s) => s.id), location, tag: want.tag, seeds } : undefined;
 }
+
+const EXAMPLES = [
+  "I love Oppenheimer, my partner loves Barbie. What should we watch?",
+  "I love Drake and my friend loves Morgan Wallen. Road trip music?",
+  "We both love The Office. Where should we eat in Toronto?",
+  "I loved Atomic Habits. Which podcasts would I like?",
+];
 
 /** ChatGPT-style start: one box to type in, a few ready-made questions. */
 export function Start({ busy, onAsk }: { busy: boolean; onAsk: Ask }) {
   const [input, setInput] = useState("");
+  const [example, setExample] = useState(0);
+
+  // Cycle the example in the empty box to show what kinds of questions work.
+  useEffect(() => {
+    if (input) return;
+    const timer = setInterval(() => setExample((i) => (i + 1) % EXAMPLES.length), 3500);
+    return () => clearInterval(timer);
+  }, [input]);
 
   useEffect(() => {
     // Desktop only: on phones this would pop the keyboard over the page.
@@ -124,7 +141,8 @@ export function Start({ busy, onAsk }: { busy: boolean; onAsk: Ask }) {
           onChange={setInput}
           busy={busy}
           onSend={(t) => onAsk(t, undefined, [], quickFromText(t))}
-          placeholder="e.g. I love Oppenheimer, my partner loves Barbie. What should we watch?"
+          placeholder={`e.g. ${EXAMPLES[example]}`}
+          label="Tell me what you and others love, and what you want"
         />
         <p className="mt-2 text-center text-sm text-muted">Just you? Tell me one thing you love, that works too.</p>
       </div>

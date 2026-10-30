@@ -32,6 +32,8 @@ export interface EntityCard {
   lon?: number;
   /** Google Maps place ID, for an exact map link. */
   placeId?: string;
+  /** Qloo explainability: how much each seed entity contributed to this match (scores sum to 1). */
+  explain?: { id: string; score: number }[];
   tags: string[];
 }
 
@@ -63,7 +65,17 @@ async function qlooGet(path: string, params: Record<string, string | number | un
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
 
-  const res = await fetch(url, { headers: { "X-Api-Key": key } });
+  // Rate limits and blips: honor Retry-After, else back off 0.5s, 1s with jitter. Capped so a
+  // request still fits the serverless time limit.
+  let res: Response;
+  for (let attempt = 0; ; attempt++) {
+    res = await fetch(url, { headers: { "X-Api-Key": key } });
+    const retryable = res.status === 429 || res.status === 502 || res.status === 503;
+    if (!retryable || attempt === 2) break;
+    const after = Number(res.headers.get("retry-after"));
+    const wait = after > 0 ? Math.min(after * 1000, 5000) : 500 * 2 ** attempt + Math.random() * 300;
+    await new Promise((r) => setTimeout(r, wait));
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Qloo ${path} returned ${res.status}: ${body.slice(0, 300)}`);
@@ -90,6 +102,8 @@ function toCard(e: any): EntityCard {
     lat: e.location?.lat,
     lon: e.location?.lon,
     placeId: (e.external ?? p.external)?.google_place?.[0]?.place_id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    explain: e.query?.explainability?.["signal.interests.entities"]?.map((x: any) => ({ id: x.entity_id, score: x.score })),
     tags: cleanTags(e.tags ?? []),
   };
 }
@@ -135,6 +149,8 @@ export interface InsightsQuery {
   seedTagIds?: string[];
   requiredTagIds?: string[];
   location?: string;
+  /** 0-1 popularity percentile cap, for "less mainstream" picks. */
+  maxPopularity?: number;
   take?: number;
 }
 
@@ -145,6 +161,8 @@ export async function getRecommendations(q: InsightsQuery) {
     "signal.interests.tags": q.seedTagIds?.join(","),
     "filter.tags": q.requiredTagIds?.join(","),
     "filter.location.query": q.location && (CITY_ALIASES[q.location.trim().toLowerCase()] ?? q.location),
+    "filter.popularity.max": q.maxPopularity,
+    "feature.explainability": "true",
     take: q.take ?? 6,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   })) as any;
@@ -158,4 +176,16 @@ export async function getAudienceDemographics(entityIds: string[]) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   })) as any;
   return data.results?.demographics ?? [];
+}
+
+/** Qloo's compare: tastes two sets of favorites share, strongest first. */
+export async function compareTastes(a: string[], b: string[], take = 20) {
+  const data = (await qlooGet("/v2/analysis/compare", {
+    "a.signal.interests.entities": a.join(","),
+    "b.signal.interests.entities": b.join(","),
+    take,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  })) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return [...new Set<string>((data.results?.tags ?? []).map((t: any) => String(t.name).replace(/[,.;]+$/, "")))];
 }

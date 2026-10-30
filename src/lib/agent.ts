@@ -28,6 +28,7 @@ How to work:
 - Then call get_recommendations with those IDs as seeds. Cross-domain is the superpower: a person's music and film taste predicts restaurants, destinations and brands.
 - When the message describes several people ("I love X, my partner loves Y"), resolve every person's favorites and pass all of them together as seeds, so Qloo ranks what sits where their tastes overlap. Prefer picks that fit everyone over picks that suit only one person.
 - Use filter tags and location to respect hard constraints; use seed tags for softer preferences.
+- When they ask for less mainstream picks, hidden gems or something new, set max_popularity instead of guessing.
 - If a call returns nothing, loosen one constraint and try again rather than guessing.
 - Be efficient: batch independent lookups in parallel, and aim to answer within 3-4 rounds of tool calls.
 - Keep the final answer short; it sits beside a list of match cards. Write one sentence on how you read their taste (for several people: what their tastes have in common), then 4-8 picks as a bullet list: the entity's exact Qloo name in bold, then why it fits in under 15 words (for several people: why it works for each of them). End with one short line suggesting where to start. No headings, no addresses, no long descriptions: the cards already show those.
@@ -44,6 +45,7 @@ const RecommendationsInput = z.object({
   seed_tag_ids: z.array(z.string()).optional(),
   required_tag_ids: z.array(z.string()).optional(),
   location: z.string().optional(),
+  max_popularity: z.number().min(0).max(1).optional(),
   take: z.number().int().min(1).max(15).optional(),
 });
 const DemographicsInput = z.object({ entity_ids: z.array(z.string()).min(1) });
@@ -87,6 +89,12 @@ const tools: Anthropic.Beta.BetaTool[] = [
         seed_tag_ids: { type: "array", items: { type: "string" } },
         required_tag_ids: { type: "array", items: { type: "string" } },
         location: { type: "string" },
+        max_popularity: {
+          type: "number",
+          minimum: 0,
+          maximum: 1,
+          description: "Popularity percentile cap. Use about 0.8 for less mainstream picks and 0.6 for hidden gems.",
+        },
         take: { type: "integer", minimum: 1, maximum: 15 },
       },
       required: ["type"],
@@ -124,6 +132,7 @@ async function runTool(name: string, input: unknown): Promise<{ result: unknown;
         seedTagIds: i.seed_tag_ids,
         requiredTagIds: i.required_tag_ids,
         location: i.location,
+        maxPopularity: i.max_popularity,
         take: i.take,
       });
       return { result: entities, entities };

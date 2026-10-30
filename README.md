@@ -31,6 +31,11 @@ and a Taylor Swift fan can get a dinner spot in New York that suits them both.
   Qloo search and shows Qloo Insights matches straight away, while the agent picks and explains the best ones.
 - **Blended taste.** Every person's favorites go to Qloo Insights together as signals, so the ranking favors
   what sits where your tastes overlap, not what suits only one of you.
+- **Shows how each pick balances your tastes.** Qloo explainability scores how much each person's favorite drove
+  a match, so every card shows a split such as "Oppenheimer 49% · Barbie 51%".
+- **What you have in common.** Qloo's compare analysis lists the tastes your favorites share, right above the picks.
+- **Less mainstream, for real.** "Less mainstream" and "hidden gems" set Qloo's popularity cap instead of
+  relying on the model's guess.
 - **Cross-domain taste.** A movie or artist you love predicts restaurants, destinations, podcasts and brands.
   "Explore beyond" carries the same taste profile into every other category.
 - **Constraints the way Qloo models them:** tag filters (for example restaurants only), location for places,
@@ -60,10 +65,12 @@ Open http://localhost:3000. `GET /api/health` checks that both keys are configur
 
 ## How it works
 
-- `src/lib/qloo.ts` – Qloo client (`/search`, `/v2/tags`, `/v2/insights`) with in-memory caching.
+- `src/lib/qloo.ts` – Qloo client (`/search`, `/v2/tags`, `/v2/insights` with explainability, `/v2/analysis/compare`)
+  with in-memory caching and retries that honor `Retry-After` on rate limits.
 - `src/lib/agent.ts` – Claude tool-use loop exposing Qloo as four tools; streams events to the UI.
 - `src/app/api/chat/route.ts` – streaming NDJSON endpoint with a simple per-IP rate limit.
 - `src/app/api/search/route.ts` – Qloo search that turns typed text ("I love 3 idiots") into the right entity.
+- `src/app/api/common/route.ts` – "What you have in common" via Qloo compare.
 - `src/app/api/explore/route.ts` – direct Qloo Insights for instant results, "Explore beyond" and "You might also like".
 - `src/app/page.tsx`, `src/components/` – chat start screen, conversation, match cards and detail page.
 

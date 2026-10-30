@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import type { AgentEvent } from "@/lib/agent";
 import type { EntityCard } from "@/lib/qloo";
 import { TYPE_PLURAL } from "@/lib/categories";
 import { Composer } from "@/components/Composer";
-import { ExploreBeyond, MatchDetail, PosterCard, PosterSkeleton } from "@/components/Matches";
+import { CommonGround, ExploreBeyond, MatchDetail, PosterCard, PosterSkeleton } from "@/components/Matches";
 import { LogoMark } from "@/components/Logo";
 import { Start, type Quick } from "@/components/Start";
 
@@ -35,6 +35,8 @@ interface Turn {
   quick?: EntityCard[];
   error?: string;
 }
+
+const SAVED = "taste-agent:turns";
 
 const FOLLOW_UPS: Record<string, string[]> = {
   place: ["More like these", "Cheaper options", "Less touristy"],
@@ -123,6 +125,21 @@ export default function Home() {
   const [selected, setSelected] = useState<{ e: EntityCard; reason?: string } | null>(null);
   const savedScroll = useRef(0);
 
+  // Keep the conversation through a refresh (this tab only). Storage can be blocked; the app works without it.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(SAVED);
+      if (saved) setTurns(JSON.parse(saved));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (busy) return;
+    try {
+      if (turns.length) sessionStorage.setItem(SAVED, JSON.stringify(turns));
+      else sessionStorage.removeItem(SAVED);
+    } catch {}
+  }, [turns, busy]);
+
   function goHome() {
     if (busy) return;
     setTurns([]);
@@ -155,12 +172,26 @@ export default function Home() {
     const empty = { steps: [], entities: [], lookups: {}, seeds: [] };
     const history: Turn[] = [...turns, { role: "user", text: q, content: content?.trim(), ...empty }];
     const lookups = Object.fromEntries(known.map((k) => [k.id, k]));
-    setTurns([...history, { role: "assistant", text: "", ...empty, lookups }]);
+    setTurns([...history, { role: "assistant", text: "", ...empty, lookups, seeds: known.map((k) => k.id) }]);
     if (quick) {
       const at = history.length;
       Promise.resolve(quick)
         .then((q) => {
           if (!q?.ids.length) return null;
+          // Typed favorites resolve here first, so the taste profile shows before the agent's lookups.
+          const found = q.seeds ?? [];
+          if (found.length)
+            setTurns((prev) =>
+              prev.map((t, i) =>
+                i === at
+                  ? {
+                      ...t,
+                      lookups: { ...Object.fromEntries(found.map((f) => [f.id, f])), ...t.lookups },
+                      seeds: [...new Set([...found.map((f) => f.id), ...t.seeds])],
+                    }
+                  : t,
+              ),
+            );
           const qs = new URLSearchParams({
             type: q.type,
             ids: q.ids.join(","),
@@ -372,6 +403,7 @@ export default function Home() {
                         ))}
                       </div>
                     )}
+                    {seeds.length >= 2 && <CommonGround a={seeds[0].id} b={seeds[1].id} />}
                     {t.error && (
                       <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                         {t.error}
@@ -399,7 +431,13 @@ export default function Home() {
                       {shown.length > 0
                         ? shown.map((e, i) => (
                             <li key={e.id}>
-                              <PosterCard e={e} i={i} reason={reasonFor(bullets, e.name)} onOpen={() => openDetail(e, reasonFor(bullets, e.name))} />
+                              <PosterCard
+                                e={e}
+                                i={i}
+                                seeds={seeds}
+                                reason={reasonFor(bullets, e.name)}
+                                onOpen={() => openDetail(e, reasonFor(bullets, e.name))}
+                              />
                             </li>
                           ))
                         : Array.from({ length: 5 }, (_, i) => (

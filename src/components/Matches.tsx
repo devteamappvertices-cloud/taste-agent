@@ -8,6 +8,63 @@ export function pct(e: EntityCard) {
   return e.affinity !== undefined ? Math.round(e.affinity * 100) : undefined;
 }
 
+const SHARE_COLORS = ["var(--forest)", "var(--marigold)", "#7c6cf0", "#3b9bd9"];
+
+/** Qloo explainability: each favorite's share in this match, when two or more favorites drove it. */
+function balance(e: EntityCard, seeds: EntityCard[]) {
+  const parts = seeds
+    .map((s) => ({ name: s.name, score: e.explain?.find((x) => x.id === s.id)?.score ?? 0 }))
+    .filter((x) => x.score > 0);
+  const total = parts.reduce((t, x) => t + x.score, 0);
+  return parts.length >= 2 ? parts.map((x, i) => ({ ...x, pct: Math.round((x.score / total) * 100), color: SHARE_COLORS[i % 4] })) : [];
+}
+
+function BalanceBar({ e, seeds }: { e: EntityCard; seeds: EntityCard[] }) {
+  const parts = balance(e, seeds);
+  if (!parts.length) return null;
+  const label = parts.map((x) => `${x.name} ${x.pct}%`).join(", ");
+  return (
+    <span className="mt-2 block" role="img" aria-label={`Fits your favorites: ${label}`} title={`Fits your favorites: ${label}`}>
+      <span className="flex h-1.5 overflow-hidden rounded-full bg-line">
+        {parts.map((x) => (
+          <span key={x.name} style={{ width: `${x.pct}%`, background: x.color }} />
+        ))}
+      </span>
+      <span className="mt-1 flex justify-between gap-2 text-[11px] leading-tight text-muted">
+        {parts.slice(0, 2).map((x) => (
+          <span key={x.name} className="truncate">
+            {x.name} {x.pct}%
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+/** "What you have in common": tastes Qloo finds in both favorites. */
+export function CommonGround({ a, b }: { a: string; b: string }) {
+  const [tags, setTags] = useState<string[]>([]);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch(`/api/common?a=${a}&b=${b}`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => setTags(body?.tags ?? []))
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [a, b]);
+  if (!tags.length) return null;
+  return (
+    <div className="rise flex flex-wrap items-center gap-1.5 text-sm">
+      <span className="text-muted">In common</span>
+      {tags.map((t) => (
+        <span key={t} className="rounded-full bg-mint px-2.5 py-0.5 font-medium text-forest">
+          {t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 const TINTS = ["var(--tint-rose)", "var(--tint-lilac)", "var(--tint-peach)", "var(--tint-sky)", "var(--tint-lime)"];
 
 function Thumb({ e, className }: { e: EntityCard; className: string }) {
@@ -35,7 +92,19 @@ function MatchPill({ p, className = "" }: { p: number; className?: string }) {
 }
 
 /** Ranked match: poster, Qloo affinity, year, tags and the agent's one-line reason. */
-export function PosterCard({ e, reason, onOpen, i = 0 }: { e: EntityCard; reason?: string; onOpen: () => void; i?: number }) {
+export function PosterCard({
+  e,
+  reason,
+  seeds = [],
+  onOpen,
+  i = 0,
+}: {
+  e: EntityCard;
+  reason?: string;
+  seeds?: EntityCard[];
+  onOpen: () => void;
+  i?: number;
+}) {
   const p = pct(e);
   return (
     <button type="button" onClick={onOpen} className="rise group block w-full text-left" style={{ ["--i" as string]: i }}>
@@ -54,6 +123,7 @@ export function PosterCard({ e, reason, onOpen, i = 0 }: { e: EntityCard; reason
           ))}
         </span>
       )}
+      <BalanceBar e={e} seeds={seeds} />
       {reason && <span className="mt-2 line-clamp-2 block text-sm leading-snug text-muted">{reason}</span>}
     </button>
   );
@@ -232,6 +302,8 @@ export function MatchDetail({
     reason,
     seeds.length > 0 && `Picked from the favorites you shared: ${seeds.map((s) => s.name).join(", ")}`,
     p !== undefined && `${p}% taste affinity in Qloo's graph`,
+    balance(e, seeds).length > 0 &&
+      `Balanced across your favorites: ${balance(e, seeds).map((x) => `${x.name} ${x.pct}%`).join(", ")}`,
     e.tags.length > 0 && `Shares themes like ${e.tags.slice(0, 3).join(", ")}`,
     pop !== undefined && (pop >= 90 ? `A crowd favourite: more popular than ${pop}% of Qloo ${TYPE_PLURAL[e.type] ?? "entities"}` : pop < 50 ? "A lesser-known pick, off the beaten path" : null),
   ].filter(Boolean) as string[];
