@@ -73,9 +73,23 @@ const TINTS = ["var(--tint-rose)", "var(--tint-lilac)", "var(--tint-peach)", "va
 
 function Thumb({ e, className }: { e: EntityCard; className: string }) {
   const [broken, setBroken] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   if (e.image && !broken) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={e.image} alt="" onError={() => setBroken(true)} className={`object-cover ${className}`} loading="lazy" />;
+    // Shimmer until the picture arrives, then fade it in; a failed image falls back to the name tile.
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={e.image}
+        alt=""
+        loading="lazy"
+        ref={(img) => {
+          if (img?.complete && img.naturalWidth && !loaded) setLoaded(true);
+        }}
+        onLoad={() => setLoaded(true)}
+        onError={() => setBroken(true)}
+        className={`object-cover ${loaded ? "fade-in" : "skeleton"} ${className}`}
+      />
+    );
   }
   return (
     <span

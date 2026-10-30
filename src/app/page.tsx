@@ -448,6 +448,18 @@ export default function Home() {
     </div>
   );
 
+  // Until Firebase says whether someone is signed in (a moment, from local storage), show a calm splash
+  // instead of the signed-out layout that would then jump when the sidebar appears.
+  if (user === undefined)
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4" role="status" aria-label="Loading Taste Agent">
+        <LogoMark className="h-12 w-12 animate-pulse" />
+        <span className="h-1 w-24 overflow-hidden rounded-full bg-line">
+          <span className="skeleton block h-full w-full" />
+        </span>
+      </div>
+    );
+
   if (!started)
     return shell(
       <Start
@@ -527,7 +539,7 @@ export default function Home() {
                           <span key={s.id} className="flex items-center gap-1.5 rounded-full bg-surface py-0.5 pl-0.5 pr-2.5 ring-1 ring-line">
                             {s.image ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={s.image} alt="" className="h-6 w-6 rounded-full object-cover" />
+                              <img src={s.image} alt="" className="h-6 w-6 rounded-full bg-line object-cover" />
                             ) : (
                               <span className="w-1.5" />
                             )}
