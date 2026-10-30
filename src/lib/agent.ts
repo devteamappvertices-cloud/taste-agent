@@ -29,7 +29,8 @@ How to work:
 - If a call returns nothing, loosen one constraint and try again rather than guessing.
 - Be efficient: batch independent lookups in parallel, and aim to answer within 3-4 rounds of tool calls.
 - Keep the final answer short; it sits beside a list of match cards. Write one sentence on how you read their taste, then 4-8 picks as a bullet list: the entity's exact Qloo name in bold, then why it fits in under 15 words. End with one short line suggesting where to start. No headings, no addresses, no long descriptions: the cards already show those.
-- Don't narrate your tool calls; the UI shows progress.`;
+- Don't narrate your tool calls or write notes to yourself; the UI shows progress. Only write the final answer.
+- Earlier assistant answers in this conversation came from Qloo lookups. Their picks are repeated in a bracketed "Qloo results" note with each entity's id and tags. Treat them as grounded: answer follow-ups from those tags when you can (for example dietary or cuisine questions), look up again only when you need something they don't show, and never say earlier picks were not from Qloo.`;
 
 const SearchEntitiesInput = z.object({
   query: z.string().min(1),
@@ -158,7 +159,8 @@ export async function runAgent(
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
     });
-    stream.on("text", (delta) => emit({ type: "text", delta }));
+    // Text is held back until the step ends: text written alongside tool calls is the model
+    // thinking aloud ("Need restaurant tag."), and only the final step's text is the answer.
 
     let message: Anthropic.Beta.BetaMessage;
     try {
@@ -170,7 +172,7 @@ export async function runAgent(
     }
 
     if (message.stop_reason === "refusal") {
-      emit({ type: "text", delta: "\n\nSorry, I can't help with that request." });
+      emit({ type: "text", delta: "Sorry, I can't help with that request." });
       break;
     }
     if (message.stop_reason === "pause_turn") {
@@ -181,7 +183,15 @@ export async function runAgent(
     const toolUses = message.content.filter(
       (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use",
     );
-    if (message.stop_reason !== "tool_use" || toolUses.length === 0) break;
+    if (message.stop_reason !== "tool_use" || toolUses.length === 0) {
+      const answer = message.content
+        .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("\n\n")
+        .trim();
+      if (answer) emit({ type: "text", delta: answer });
+      break;
+    }
 
     messages.push({ role: "assistant", content: message.content });
 

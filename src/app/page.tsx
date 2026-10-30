@@ -95,6 +95,24 @@ function picks(t: Turn, answer: Answer) {
     .sort((a, b) => (b.affinity ?? -1) - (a.affinity ?? -1));
 }
 
+/**
+ * What the agent receives for a turn. Earlier answers carry a note of the Qloo results behind
+ * them (names, ids, tags), so follow-ups can use them instead of treating the answer as a guess.
+ */
+function forAgent(t: Turn): string {
+  if (t.role === "user") return t.content || t.text;
+  const shown = picks(t, splitAnswer(t.text));
+  if (!shown.length) return t.text;
+  const note = shown
+    .map((e) => {
+      const where = e.city ? `, ${e.city}` : "";
+      const tags = e.tags.length ? `; tags: ${e.tags.slice(0, 8).join(", ")}` : "";
+      return `${e.name} [${e.id}]${where}${tags}`;
+    })
+    .join("\n");
+  return `${t.text}\n\n[Qloo results for this answer]\n${note}`.slice(0, 3900);
+}
+
 function profile(t: Turn) {
   return t.seeds.map((id) => t.lookups[id]).filter(Boolean);
 }
@@ -236,7 +254,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(isDemo() ? { "x-demo": "1" } : {}) },
         body: JSON.stringify({
-          messages: history.filter((t) => t.text).map((t) => ({ role: t.role, content: t.content || t.text })),
+          messages: history.filter((t) => t.text).map((t) => ({ role: t.role, content: forAgent(t) })),
         }),
       });
       if (!res.ok || !res.body) {
