@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { EntityCard } from "@/lib/qloo";
-import { CATEGORIES, TYPE_LABEL, TYPE_PLURAL } from "@/lib/categories";
+import { CATEGORIES, TYPE_LABEL, TYPE_PLURAL, franchise } from "@/lib/categories";
 
 export function pct(e: EntityCard) {
   return e.affinity !== undefined ? Math.round(e.affinity * 100) : undefined;
@@ -10,8 +10,12 @@ export function pct(e: EntityCard) {
 
 const SHARE_COLORS = ["var(--forest)", "var(--marigold)", "#7c6cf0", "#3b9bd9"];
 
-/** Qloo explainability: each favorite's share in this match, when two or more favorites drove it. */
+/**
+ * Qloo explainability: each favorite's share in this match, when two or more different favorites drove
+ * it. Seeds from one franchise (Digimon Adventure, Digimon Adventure 02) are one taste, so no split.
+ */
 function balance(e: EntityCard, seeds: EntityCard[]) {
+  if (new Set(seeds.map((s) => franchise(s.name) ?? s.name)).size < 2) return [];
   const parts = seeds
     .map((s) => ({ name: s.name, score: e.explain?.find((x) => x.id === s.id)?.score ?? 0 }))
     .filter((x) => x.score > 0);

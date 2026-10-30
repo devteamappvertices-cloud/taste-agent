@@ -4,6 +4,8 @@ export interface Category {
   key: string;
   label: string;
   type: EntityType;
+  /** How a request names it: "Recommend music artists". */
+  phrase: string;
   emoji: string;
   /** Places need a city to make sense. */
   place?: boolean;
@@ -12,14 +14,14 @@ export interface Category {
 }
 
 export const CATEGORIES: Category[] = [
-  { key: "movies", label: "Movies", type: "movie", emoji: "🍿" },
-  { key: "music", label: "Music", type: "artist", emoji: "🎧" },
-  { key: "food", label: "Food", type: "place", emoji: "🍜", place: true, tag: "urn:tag:genre:place:restaurant" },
-  { key: "travel", label: "Travel", type: "destination", emoji: "🏝️" },
-  { key: "tv", label: "TV shows", type: "tv_show", emoji: "📺" },
-  { key: "books", label: "Books", type: "book", emoji: "📚" },
-  { key: "podcasts", label: "Podcasts", type: "podcast", emoji: "🎙️" },
-  { key: "brands", label: "Brands", type: "brand", emoji: "🛍️" },
+  { key: "movies", label: "Movies", type: "movie", phrase: "movies", emoji: "🍿" },
+  { key: "music", label: "Music", type: "artist", phrase: "music artists", emoji: "🎧" },
+  { key: "food", label: "Food", type: "place", phrase: "restaurants", emoji: "🍜", place: true, tag: "urn:tag:genre:place:restaurant" },
+  { key: "travel", label: "Travel", type: "destination", phrase: "travel destinations", emoji: "🏝️" },
+  { key: "tv", label: "TV shows", type: "tv_show", phrase: "TV shows", emoji: "📺" },
+  { key: "books", label: "Books", type: "book", phrase: "books", emoji: "📚" },
+  { key: "podcasts", label: "Podcasts", type: "podcast", phrase: "podcasts", emoji: "🎙️" },
+  { key: "brands", label: "Brands", type: "brand", phrase: "brands", emoji: "🛍️" },
 ];
 
 export const TYPE_LABEL: Record<string, string> = {
@@ -64,4 +66,10 @@ const TAIL = /\s+(?:movie|film|tv\s+show|show|series|song|band|singer|book|novel
 
 export function cleanQuery(text: string) {
   return text.replace(LEAD, "").replace(/[.!?,]+$/, "").replace(TAIL, "").trim();
+}
+
+// "Digimon Adventure 02" -> "digimon": the word that ties entries of one franchise together.
+const STOP = new Set(["the", "and", "of", "a", "an", "my", "our", "in", "on"]);
+export function franchise(name: string) {
+  return name.toLowerCase().split(/[^\p{L}\p{N}]+/u).find((w) => w.length >= 4 && !STOP.has(w));
 }

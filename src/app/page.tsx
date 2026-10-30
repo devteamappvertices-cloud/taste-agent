@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import type { AgentEvent } from "@/lib/agent";
 import type { EntityCard } from "@/lib/qloo";
-import { TYPE_PLURAL } from "@/lib/categories";
+import { TYPE_PLURAL, franchise } from "@/lib/categories";
 import { Composer } from "@/components/Composer";
 import { CommonGround, ExploreBeyond, MatchDetail, PosterCard, PosterSkeleton } from "@/components/Matches";
 import { LogoMark } from "@/components/Logo";
@@ -74,10 +74,21 @@ function mentions(text: string, name: string) {
   return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "iu").test(text);
 }
 
+// The agent bolds each pick's exact name. Only bolded names count: a title named inside another
+// pick's reason ("like the serious side of Digimon Tamers") is not a pick.
 function picks(t: Turn) {
+  const bold = [...t.text.matchAll(/\*\*(.+?)\*\*/g)].map((m) => m[1]);
+  const seen = new Set<string>();
   return t.entities
-    .filter((e) => mentions(t.text, e.name))
-    .sort((a, b) => (b.affinity ?? -1) - (a.affinity ?? -1));
+    .filter((e) => (bold.length ? bold.some((b) => mentions(b, e.name)) : mentions(t.text, e.name)))
+    .sort((a, b) => (b.affinity ?? -1) - (a.affinity ?? -1))
+    .filter((e) => !seen.has(e.name.toLowerCase()) && !!seen.add(e.name.toLowerCase())); // same title, two versions: keep the best
+}
+
+// Instant results skip the favorite's own franchise, which they already know.
+function outsideFranchise(list: EntityCard[], seeds: EntityCard[]) {
+  const keys = seeds.map((s) => franchise(s.name)).filter((k): k is string => !!k);
+  return list.filter((e) => !keys.some((k) => mentions(e.name, k)));
 }
 
 function profile(t: Turn) {
@@ -361,9 +372,9 @@ export default function Home() {
             const running = busy && last;
             const current = [...t.steps].reverse().find((s) => !s.done);
             const list = picks(t);
-            const shown = list.length ? list : (t.quick ?? []);
-            const { summary, bullets } = splitAnswer(t.text);
             const seeds = profile(t);
+            const shown = list.length ? list : outsideFranchise(t.quick ?? [], seeds);
+            const { summary, bullets } = splitAnswer(t.text);
             return (
               <section key={idx} aria-label="Agent answer" className="space-y-6">
                 <div className="flex items-start gap-3">

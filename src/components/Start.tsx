@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { EntityCard } from "@/lib/qloo";
-import { CATEGORIES, cleanQuery, qlooImage } from "@/lib/categories";
+import { CATEGORIES, cleanQuery, qlooImage, type Category } from "@/lib/categories";
 import { Composer } from "@/components/Composer";
 
 /** Direct Qloo query the page runs while the agent works, so matches show in about a second. */
@@ -78,11 +78,11 @@ const FAVORITES =
  * Best-effort read of a typed message into a direct Qloo query. If any part is unclear it
  * returns nothing and the agent alone answers.
  */
-async function quickFromText(text: string): Promise<Quick | undefined> {
+async function quickFromText(text: string, picked?: Category | null): Promise<Quick | undefined> {
   const found = [...text.matchAll(FAVORITES)].map((m) => m[1]);
   if (!found.length) return;
   const rest = found.reduce((t, f) => t.replace(f, " "), text);
-  const want = CATEGORIES.find((c) => c.key === WANTS.find(([re]) => re.test(rest))?.[1]);
+  const want = picked ?? CATEGORIES.find((c) => c.key === WANTS.find(([re]) => re.test(rest))?.[1]);
   if (!want) return;
   const location = want.place ? text.match(/\bin\s+([A-Z][\w.' -]{1,40}?)\s*[?.!]*$/)?.[1] : undefined;
   if (want.place && !location) return;
@@ -111,6 +111,23 @@ const EXAMPLES = [
 export function Start({ busy, onAsk }: { busy: boolean; onAsk: Ask }) {
   const [input, setInput] = useState("");
   const [example, setExample] = useState(0);
+  const [want, setWant] = useState<Category | null>(null);
+  const [city, setCity] = useState("");
+  const [needCity, setNeedCity] = useState(false);
+  const cityInput = useRef<HTMLInputElement>(null);
+
+  /** The picked category (and city, for food) is added to the message, so the agent and the bubble both show it. */
+  function send(typed: string) {
+    const place = city.trim();
+    if (want?.place && !place && !/\bin\s+[A-Z]/.test(typed)) {
+      setNeedCity(true);
+      cityInput.current?.focus();
+      return;
+    }
+    const base = /[.?!]$/.test(typed.trim()) ? typed.trim() : `${typed.trim()}.`;
+    const text = want ? `${base} Show me ${want.phrase}${want.place && place ? ` in ${place}` : ""}.` : base;
+    onAsk(text, undefined, [], quickFromText(text, want));
+  }
 
   // Cycle the example in the empty box to show what kinds of questions work.
   useEffect(() => {
@@ -140,16 +157,72 @@ export function Start({ busy, onAsk }: { busy: boolean; onAsk: Ask }) {
           value={input}
           onChange={setInput}
           busy={busy}
-          onSend={(t) => onAsk(t, undefined, [], quickFromText(t))}
+          onSend={send}
           placeholder={`e.g. ${EXAMPLES[example]}`}
           label="Tell me what you and others love, and what you want"
         />
-        <p className="mt-2 text-center text-sm text-muted">Just you? Tell me one thing you love, that works too.</p>
+      </div>
+
+      <div className="rise mt-4" style={{ ["--i" as string]: 3 }}>
+        <p id="find-label" className="text-center text-sm text-muted">
+          What should I find? <span className="text-muted/80">(optional)</span>
+        </p>
+        <div role="radiogroup" aria-labelledby="find-label" className="mt-2 flex flex-wrap justify-center gap-2">
+          {[null, ...CATEGORIES].map((c) => {
+            const on = (want?.key ?? null) === (c?.key ?? null);
+            return (
+              <button
+                key={c?.key ?? "any"}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => {
+                  setWant(c);
+                  setNeedCity(false);
+                }}
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  on ? "bg-forest text-forest-ink" : "bg-surface ring-1 ring-line hover:text-forest hover:ring-forest"
+                }`}
+              >
+                <span aria-hidden="true">{c?.emoji ?? "✨"}</span>
+                {c?.label ?? "Anything"}
+              </button>
+            );
+          })}
+        </div>
+        {want?.place && (
+          <div className="mx-auto mt-3 max-w-sm">
+            <label htmlFor="city" className="sr-only">
+              Which city?
+            </label>
+            <input
+              ref={cityInput}
+              id="city"
+              value={city}
+              onChange={(e) => {
+                setCity(e.target.value);
+                setNeedCity(false);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && input.trim() && send(input)}
+              placeholder="Which city? e.g. Toronto, New York"
+              aria-describedby={needCity ? "city-nudge" : undefined}
+              className={`w-full rounded-full border bg-surface px-5 py-2.5 text-center outline-none placeholder:text-muted focus:border-forest focus-visible:outline-none ${
+                needCity ? "border-red-400" : "border-line"
+              }`}
+            />
+            {needCity && (
+              <p id="city-nudge" role="alert" className="mt-1.5 text-center text-sm font-medium text-red-700">
+                Add a city for restaurant picks.
+              </p>
+            )}
+          </div>
+        )}
+        <p className="mt-3 text-center text-sm text-muted">Just you? Tell me one thing you love, that works too.</p>
       </div>
 
       <ul className="mt-6 grid gap-3 sm:grid-cols-2">
         {SUGGESTIONS.map((s, i) => (
-          <li key={s.title} className="rise" style={{ ["--i" as string]: 3 + i }}>
+          <li key={s.title} className="rise" style={{ ["--i" as string]: 4 + i }}>
             <button
               type="button"
               disabled={busy}
