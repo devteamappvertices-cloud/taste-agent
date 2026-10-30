@@ -46,6 +46,21 @@ body {
     outline: 2px solid var(--forest);
     outline-offset: 2px;
   }
+
+  /* Tailwind 4 resets buttons to the default cursor; everything clickable shows a hand. */
+  a[href],
+  button:not(:disabled),
+  [role="button"],
+  [role="tab"],
+  [role="radio"],
+  [role="option"],
+  summary,
+  label[for] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 

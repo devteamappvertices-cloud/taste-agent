@@ -166,26 +166,41 @@ function MiniCard({ e, onOpen, round, i }: { e: EntityCard; onOpen: () => void; 
 function useInsights(type: string | undefined, ids: string[]) {
   const key = type && ids.length ? `${type}|${ids.join(",")}` : "";
   const [state, setState] = useState<{ key: string; items: EntityCard[]; failed: boolean }>({ key: "", items: [], failed: false });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!key) return;
     const [t, list] = key.split("|");
     const ctrl = new AbortController();
-    fetch(`/api/explore?type=${t}&ids=${list}`, { signal: ctrl.signal })
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+    const load = () => fetch(`/api/explore?type=${t}&ids=${list}`, { signal: ctrl.signal }).then((r) => (r.ok ? r.json() : Promise.reject(r)));
+    // One quiet retry covers a rate limit or a network blip before showing an error.
+    load()
+      .catch(() => new Promise((r) => setTimeout(r, 1500)).then(load))
       .then((b) => setState({ key, items: b.results ?? [], failed: false }))
       .catch(() => !ctrl.signal.aborted && setState({ key, items: [], failed: true }));
     return () => ctrl.abort();
-  }, [key]);
+  }, [key, attempt]);
 
   const ready = state.key === key;
-  return { items: ready ? state.items : [], loading: !!key && !ready, failed: ready && state.failed };
+  const retry = () => {
+    setState({ key: "", items: [], failed: false });
+    setAttempt((n) => n + 1);
+  };
+  return { items: ready ? state.items : [], loading: !!key && !ready, failed: ready && state.failed, retry };
 }
 
 function Row({ type, ids, onOpen }: { type: string; ids: string[]; onOpen: (e: EntityCard) => void }) {
-  const { items, loading, failed } = useInsights(type, ids);
+  const { items, loading, failed, retry } = useInsights(type, ids);
   const round = type === "artist" || type === "person";
-  if (failed) return <p className="py-6 text-sm text-muted">Qloo couldn&apos;t load these right now.</p>;
+  if (failed)
+    return (
+      <p role="alert" className="flex items-center gap-3 py-6 text-sm text-muted">
+        These picks didn&apos;t load.
+        <button type="button" onClick={retry} className="rounded-full bg-paper px-3.5 py-1.5 font-semibold text-forest ring-1 ring-line hover:ring-forest">
+          Try again
+        </button>
+      </p>
+    );
   if (!loading && items.length === 0) return <p className="py-6 text-sm text-muted">No matches in this category yet.</p>;
   return (
     <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-x-4 lg:grid-cols-8" aria-busy={loading}>

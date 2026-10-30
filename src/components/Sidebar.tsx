@@ -1,7 +1,80 @@
 "use client";
 
+import { useState } from "react";
 import type { User } from "firebase/auth";
 import type { SavedChat } from "@/lib/firebase";
+
+/** Profile photo, or the first letter of the name when there is none or it fails to load. */
+export function Avatar({ user, size = "h-8 w-8" }: { user: User; size?: string }) {
+  const [broken, setBroken] = useState(false);
+  const name = user.displayName || user.email || "?";
+  return user.photoURL && !broken ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={user.photoURL} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} className={`${size} shrink-0 rounded-full object-cover`} />
+  ) : (
+    <span aria-hidden="true" className={`${size} flex shrink-0 items-center justify-center rounded-full bg-forest text-sm font-semibold uppercase text-forest-ink`}>
+      {name.slice(0, 1)}
+    </span>
+  );
+}
+
+/** Header account button: photo and first name, with a menu for chats (phones) and sign out. */
+export function AccountMenu({ user, onChats, onSignOut }: { user: User; onChats: () => void; onSignOut: () => void }) {
+  const [open, setOpen] = useState(false);
+  const name = user.displayName || user.email || "Account";
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`Account: ${name}`}
+        className="flex h-9 items-center gap-2 rounded-full border border-line bg-surface py-0.5 pl-0.5 pr-2.5 transition-colors hover:border-forest sm:pr-3"
+      >
+        <Avatar user={user} />
+        <span className="hidden max-w-32 truncate text-sm font-semibold sm:inline">{name.split(/[\s@]/)[0]}</span>
+        <span aria-hidden="true" className="text-xs text-muted">▾</span>
+      </button>
+      {open && (
+        <>
+          <button type="button" aria-label="Close menu" tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
+          <div role="menu" className="rise absolute right-0 top-11 z-50 w-64 overflow-hidden rounded-2xl bg-surface shadow-xl ring-1 ring-line">
+            <div className="flex items-center gap-3 border-b border-line p-3.5">
+              <Avatar user={user} size="h-10 w-10" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{user.displayName || "Signed in"}</p>
+                {user.email && <p className="truncate text-xs text-muted">{user.email}</p>}
+              </div>
+            </div>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onChats();
+              }}
+              className="block w-full px-4 py-2.5 text-left text-sm hover:bg-paper lg:hidden"
+            >
+              Your chats
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onSignOut();
+              }}
+              className="block w-full px-4 py-2.5 text-left text-sm text-red-700 hover:bg-paper"
+            >
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function when(c: SavedChat) {
   const ms = c.updatedAt?.toMillis();
@@ -76,14 +149,7 @@ export function Sidebar({
         ))}
       </ul>
       <div className="flex items-center gap-2.5 border-t border-line p-3">
-        {user.photoURL ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={user.photoURL} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded-full" />
-        ) : (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-mint font-semibold text-forest">
-            {(user.displayName ?? user.email ?? "?").slice(0, 1)}
-          </span>
-        )}
+        <Avatar user={user} />
         <span className="min-w-0 flex-1 truncate text-sm">{user.displayName ?? user.email}</span>
         <button type="button" onClick={onSignOut} className="rounded-full px-2.5 py-1 text-xs font-medium text-muted hover:bg-paper hover:text-ink">
           Sign out

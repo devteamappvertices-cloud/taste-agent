@@ -10,8 +10,9 @@ import { Composer } from "@/components/Composer";
 import { CommonGround, ExploreBeyond, MatchDetail, PosterCard, PosterSkeleton } from "@/components/Matches";
 import { LogoMark } from "@/components/Logo";
 import { Start, type Quick } from "@/components/Start";
-import { Sidebar } from "@/components/Sidebar";
+import { AccountMenu, Sidebar } from "@/components/Sidebar";
 import { AuthDialog, type AuthMode } from "@/components/AuthDialog";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { deleteChat, logOut, saveChat, useUser, watchChats, type SavedChat } from "@/lib/firebase";
 
 interface Step {
@@ -103,6 +104,7 @@ export default function Home() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+  const [toDelete, setToDelete] = useState<SavedChat | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   // Browser back works like the Back buttons: detail -> results -> start. `pushed` counts our history entries.
@@ -194,7 +196,7 @@ export default function Home() {
   }
 
   function removeChat(c: SavedChat) {
-    if (!user || !confirm(`Delete "${c.title}"?`)) return;
+    if (!user) return;
     deleteChat(user.uid, c.id).catch((err) => console.error("Could not delete chat", err));
     if (c.id === chatId) goHome();
   }
@@ -387,22 +389,16 @@ export default function Home() {
               </button>
             </>
           )}
+          {user === undefined && <span aria-hidden="true" className="skeleton h-9 w-24 rounded-full" />}
           {user && (
-            <button
-              type="button"
-              onClick={() => setDrawer(true)}
-              aria-label="Your chats and account"
-              className="shrink-0 rounded-full ring-1 ring-line lg:hidden"
-            >
-              {user.photoURL ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.photoURL} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded-full" />
-              ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-mint font-semibold text-forest">
-                  {(user.displayName ?? user.email ?? "?").slice(0, 1)}
-                </span>
-              )}
-            </button>
+            <AccountMenu
+              user={user}
+              onChats={() => setDrawer(true)}
+              onSignOut={() => {
+                goHome();
+                logOut();
+              }}
+            />
           )}
         </div>
       </div>
@@ -423,7 +419,7 @@ export default function Home() {
           onClose={() => setDrawer(false)}
           onNew={goHome}
           onOpen={openChat}
-          onDelete={removeChat}
+          onDelete={setToDelete}
           onSignOut={() => {
             goHome();
             logOut();
@@ -432,6 +428,15 @@ export default function Home() {
       )}
       <div className={user ? "lg:pl-72" : ""}>{body}</div>
       {authMode && <AuthDialog mode={authMode} onClose={() => setAuthMode(null)} />}
+      {toDelete && (
+        <ConfirmDialog
+          title="Delete this chat?"
+          message={`"${toDelete.title}" will be removed from your chats. This can't be undone.`}
+          confirmLabel="Delete"
+          onConfirm={() => removeChat(toDelete)}
+          onClose={() => setToDelete(null)}
+        />
+      )}
     </div>
   );
 
