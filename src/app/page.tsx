@@ -9,8 +9,9 @@ import { Composer } from "@/components/Composer";
 import { CommonGround, ExploreBeyond, MatchDetail, PosterCard, PosterSkeleton } from "@/components/Matches";
 import { LogoMark } from "@/components/Logo";
 import { Start, type Quick } from "@/components/Start";
-import { GoogleIcon, Sidebar } from "@/components/Sidebar";
-import { deleteChat, logOut, saveChat, signIn, useUser, watchChats, type SavedChat } from "@/lib/firebase";
+import { Sidebar } from "@/components/Sidebar";
+import { AuthDialog, type AuthMode } from "@/components/AuthDialog";
+import { deleteChat, logOut, saveChat, useUser, watchChats, type SavedChat } from "@/lib/firebase";
 
 interface Step {
   id: string;
@@ -141,6 +142,7 @@ export default function Home() {
   const [chats, setChats] = useState<SavedChat[]>([]);
   const [chatId, setChatId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const lastSaved = useRef("");
 
   // Signed-in users get their chats in the sidebar, live from Firestore.
@@ -377,13 +379,24 @@ export default function Home() {
             </button>
           )}
           {user === null && (
-            <button
-              type="button"
-              onClick={() => signIn().catch((err) => alert(`Sign-in failed: ${err.message ?? err}`))}
-              className="flex items-center gap-2 rounded-full bg-surface px-3.5 py-1.5 text-sm font-semibold ring-1 ring-line transition-colors hover:ring-forest"
-            >
-              <GoogleIcon /> Sign in
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setAuthMode("signin")}
+                className="rounded-full px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-surface"
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode("signup")}
+                className={`rounded-full bg-forest px-4 py-1.5 text-sm font-semibold text-forest-ink transition-transform duration-300 ease-[var(--ease-out)] hover:scale-105 ${
+                  started ? "hidden sm:block" : ""
+                }`}
+              >
+                Sign up
+              </button>
+            </>
           )}
           {user && (
             <button
@@ -429,6 +442,7 @@ export default function Home() {
         />
       )}
       <div className={user ? "lg:pl-72" : ""}>{body}</div>
+      {authMode && <AuthDialog mode={authMode} onClose={() => setAuthMode(null)} />}
     </div>
   );
 

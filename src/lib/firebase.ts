@@ -2,7 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut, type User } from "firebase/auth";
+import {
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+  updateProfile,
+  type User,
+} from "firebase/auth";
 import {
   collection,
   deleteDoc,
@@ -34,7 +46,17 @@ const db = getFirestore(app);
 /** Signed-in user; `undefined` while Firebase restores the session. */
 export function useUser() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  const [, rerender] = useState(0);
+  useEffect(() => {
+    // A new email account gets its name a moment after sign-in; re-render so it shows.
+    const refresh = () => rerender((n) => n + 1);
+    window.addEventListener("taste-agent:profile", refresh);
+    const stop = onAuthStateChanged(auth, setUser);
+    return () => {
+      stop();
+      window.removeEventListener("taste-agent:profile", refresh);
+    };
+  }, []);
   return user;
 }
 
@@ -50,6 +72,35 @@ export async function signIn() {
 }
 
 export const logOut = () => signOut(auth);
+
+export const signInEmail = (email: string, password: string) => signInWithEmailAndPassword(auth, email, password);
+
+export async function signUpEmail(name: string, email: string, password: string) {
+  const { user } = await createUserWithEmailAndPassword(auth, email, password);
+  if (name.trim()) {
+    await updateProfile(user, { displayName: name.trim() });
+    window.dispatchEvent(new Event("taste-agent:profile"));
+  }
+}
+
+export const resetPassword = (email: string) => sendPasswordResetEmail(auth, email);
+
+/** Firebase error codes in words a person can act on. */
+export function authMessage(err: unknown) {
+  const code = (err as { code?: string }).code ?? "";
+  const messages: Record<string, string> = {
+    "auth/invalid-credential": "Wrong email or password.",
+    "auth/wrong-password": "Wrong email or password.",
+    "auth/user-not-found": "No account with this email. Create one instead.",
+    "auth/email-already-in-use": "An account with this email already exists. Sign in instead.",
+    "auth/weak-password": "Use at least 6 characters for your password.",
+    "auth/invalid-email": "That email address doesn't look right.",
+    "auth/missing-password": "Enter your password.",
+    "auth/too-many-requests": "Too many tries. Wait a minute and try again.",
+    "auth/network-request-failed": "No connection. Check your internet and try again.",
+  };
+  return messages[code] ?? "Something went wrong. Please try again.";
+}
 
 export interface SavedChat {
   id: string;
